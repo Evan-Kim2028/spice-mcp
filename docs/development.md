@@ -27,7 +27,7 @@ Enable live tests explicitly:
 - `tests/offline/`: pure unit tests; no network.
 - `tests/http_stubbed/`: HTTP boundary via `responses`.
 - `tests/tools/`: service + MCP tool unit tests.
-- `tests/mcp/`: FastMCP contract tests with stubbed services (preview/raw/metadata, Sui resources).
+- `tests/mcp/`: FastMCP contract tests with stubbed services (preview/raw/metadata).
 - `tests/fastmcp/`: registration/metadata smoke tests for FastMCP wiring.
 - `tests/style/`: static safety checks (lazyframe enforcement, etc.).
 - `tests/live/`: opt-in integrations; require `SPICE_TEST_LIVE=1` and `DUNE_API_KEY`.

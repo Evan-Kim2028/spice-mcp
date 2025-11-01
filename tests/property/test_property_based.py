@@ -130,33 +130,6 @@ def test_schema_name_handling_never_crashes(schema: str):
         assert len(str(e)) > 0
 
 
-@given(
-    hours=st.integers(min_value=1, max_value=720),
-    timeout=st.one_of(st.none(), st.floats(min_value=0.1, max_value=600)),
-)
-def test_sui_overview_parameters_never_crash(hours: int, timeout: float | None):
-    """Property: Any hours/timeout combination should not crash Sui overview."""
-    from spice_mcp.mcp.tools.sui_package_overview import SuiPackageOverviewTool
-    
-    class FakeSuiService:
-        def package_overview(self, packages, *, hours: int, timeout_seconds: float | None = None):
-            return {
-                "ok": True,
-                "events_preview": [],
-                "transactions_preview": [],
-                "objects_preview": [],
-            }
-    
-    tool = SuiPackageOverviewTool(FakeSuiService())
-    
-    try:
-        result = tool.execute(packages=["0x1"], hours=hours, timeout_seconds=timeout)
-        assert result["ok"] is True
-    except Exception as e:
-        # Should handle gracefully, not crash
-        assert len(str(e)) > 0
-
-
 @given(query_id=st.one_of(
     st.integers(min_value=1, max_value=999999999),
     st.text(min_size=1, max_size=50),

@@ -78,11 +78,3 @@ class TableDescription:
     columns: list[TableColumn] = field(default_factory=list)
 
 
-@dataclass(slots=True)
-class SuiPackageOverview:
-    package_ids: list[str]
-    window_hours: int
-    events_preview: list[dict[str, Any]] | None = None
-    transactions_preview: list[dict[str, Any]] | None = None
-    objects_preview: list[dict[str, Any]] | None = None
-    stats: dict[str, Any] = field(default_factory=dict)

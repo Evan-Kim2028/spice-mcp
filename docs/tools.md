@@ -53,20 +53,7 @@ Logging & Artifacts
   - columns: [{ name, dune_type?, polars_dtype?, extra?, comment? }]
   - Errors follow the standard MCP envelope.
 
-4) sui_package_overview
-- Purpose: Preview Sui package activity (events, transactions, objects) over a time window; timeouts supported.
-- Input schema:
-  - packages: string[] (required)
-  - hours?: integer (default 72)
-  - timeout_seconds?: number (default 30)
-- Output fields (best-effort):
-  - ok: boolean
-  - events_count?, events_preview?, events_timeout?, events_error?
-  - transactions_count?, transactions_preview?, transactions_timeout?, transactions_error?
-  - objects_count?, objects_preview?, objects_timeout?, objects_error?
-  - On error: { ok: false, error: { … } }
-
- 5) dune_health_check
+4) dune_health_check
 - Purpose: Basic environment and logging readiness check.
 - Output fields: ok, api_key_present, status
 

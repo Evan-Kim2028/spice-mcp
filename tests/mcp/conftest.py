@@ -19,9 +19,7 @@ def mock_server(monkeypatch, tmp_path):
     server.DUNE_ADAPTER = None
     server.QUERY_SERVICE = None
     server.DISCOVERY_SERVICE = None
-    server.SUI_SERVICE = None
     server.EXECUTE_QUERY_TOOL = None
-    server.SUI_OVERVIEW_TOOL = None
 
     server._ensure_initialized()
 
@@ -92,28 +90,9 @@ def mock_server(monkeypatch, tmp_path):
                 columns=[TableColumn(name="col1", polars_dtype="String")],
             )
 
-    class FakeSuiService:
-        def events_preview(self, packages, *, hours: int, limit: int):
-            return {
-                "rowcount": limit,
-                "columns": ["timestamp_ms", "package"],
-                "data_preview": [{"timestamp_ms": 123, "package": "0xabc"}],
-            }
-
-        def package_overview(self, packages, *, hours: int, timeout_seconds: float | None = None):
-            return {
-                "ok": True,
-                "events_preview": [{"event": "e1"}],
-                "transactions_preview": [{"tx": "t1"}],
-                "objects_preview": [{"obj": "o1"}],
-            }
-
     server.QUERY_SERVICE = FakeQueryService()
     server.EXECUTE_QUERY_TOOL.query_service = server.QUERY_SERVICE
 
     server.DISCOVERY_SERVICE = FakeDiscoveryService()
-
-    server.SUI_SERVICE = FakeSuiService()
-    server.SUI_OVERVIEW_TOOL.sui_service = server.SUI_SERVICE
 
     yield server

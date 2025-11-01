@@ -17,10 +17,6 @@ Approach
   - Some deployments allow: information_schema.schemata/tables/columns
   - If blocked, use SHOW + probes
 
-Sui Examples
-- Find Sui schemas: SHOW SCHEMAS LIKE '%sui%'
-- Confirm core tables: SELECT * FROM sui.events/transactions/checkpoints/objects LIMIT 1
-- SHOW TABLES works on some Sui-related schemas (e.g., sui_base), but not all
 
 Helpers in this repo
 - `src/spice_mcp/service_layer/discovery_service.py` provides service wrappers around the Dune adapter:

@@ -8,7 +8,6 @@ from .models import (
     QueryResult,
     ResultMetadata,
     SchemaMatch,
-    SuiPackageOverview,
     TableDescription,
     TableSummary,
 )
@@ -39,15 +38,6 @@ class CatalogExplorer(Protocol):
         ...
 
 
-class SuiInspector(Protocol):
-    """Port for Sui package exploration helpers."""
-
-    def package_overview(
-        self, packages: Sequence[str], *, hours: int, timeout_seconds: float | None = None
-    ) -> SuiPackageOverview:
-        ...
-
-
 class QueryAdmin(Protocol):
     """Port for managing Dune saved queries."""
 
@@ -61,9 +51,4 @@ class QueryAdmin(Protocol):
         ...
 
     def fork(self, source_query_id: int, *, name: str | None = None) -> Mapping[str, Any]:
-        ...
-
-    def events_preview(
-        self, packages: Sequence[str], *, hours: int, limit: int
-    ) -> Sequence[Mapping[str, object]]:
         ...

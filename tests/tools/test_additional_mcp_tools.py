@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 from spice_mcp.core.models import TableColumn, TableDescription, TableSummary
 from spice_mcp.mcp import server
-from spice_mcp.mcp.tools.sui_package_overview import SuiPackageOverviewTool
 
 
 @dataclass
@@ -28,11 +27,6 @@ class StubDiscovery:
         assert schema == "s"
         assert table == "t"
         return self.description
-
-
-class StubSuiService:
-    def package_overview(self, packages, *, hours: int, timeout_seconds: float | None):
-        return {"ok": True, "count": len(packages), "hours": hours, "timeout_seconds": timeout_seconds}
 
 
 def test_find_tables_tool(monkeypatch):
@@ -66,14 +60,6 @@ def test_describe_table_tool(monkeypatch):
     out = server._dune_describe_table_impl(schema="s", table="t")
     assert out["columns"][0]["name"] == "a"
     assert out["columns"][1]["dune_type"] == "INT"
-
-
-def test_sui_package_overview_tool(monkeypatch):
-    tool = SuiPackageOverviewTool(StubSuiService())
-    out = tool.execute(packages=["0x1", "0x2"], hours=12, timeout_seconds=5)
-    assert out["ok"] is True
-    assert out["count"] == 2
-    assert out["hours"] == 12
 
 
 def test_spellbook_schema_discovery(monkeypatch):

@@ -34,9 +34,7 @@ from ..logging.query_history import QueryHistory
 from ..service_layer.discovery_service import DiscoveryService
 from ..service_layer.query_admin_service import QueryAdminService
 from ..service_layer.query_service import QueryService
-from ..service_layer.sui_service import SuiService
 from .tools.execute_query import ExecuteQueryTool
-from .tools.sui_package_overview import SuiPackageOverviewTool
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +47,9 @@ QUERY_SERVICE: QueryService | None = None
 QUERY_ADMIN_SERVICE: QueryAdminService | None = None
 DISCOVERY_SERVICE: DiscoveryService | None = None
 SPELLBOOK_EXPLORER: SpellbookExplorer | None = None
-SUI_SERVICE: SuiService | None = None
 HTTP_CLIENT: HttpClient | None = None
 
 EXECUTE_QUERY_TOOL: ExecuteQueryTool | None = None
-SUI_OVERVIEW_TOOL: SuiPackageOverviewTool | None = None
 
 
 app = FastMCP("spice-mcp")
@@ -61,8 +57,8 @@ app = FastMCP("spice-mcp")
 
 def _ensure_initialized() -> None:
     """Initialize configuration and tool instances if not already initialized."""
-    global CONFIG, QUERY_HISTORY, DUNE_ADAPTER, QUERY_SERVICE, DISCOVERY_SERVICE, SUI_SERVICE, QUERY_ADMIN_SERVICE
-    global EXECUTE_QUERY_TOOL, SUI_OVERVIEW_TOOL, HTTP_CLIENT, SPELLBOOK_EXPLORER
+    global CONFIG, QUERY_HISTORY, DUNE_ADAPTER, QUERY_SERVICE, DISCOVERY_SERVICE, QUERY_ADMIN_SERVICE
+    global EXECUTE_QUERY_TOOL, HTTP_CLIENT, SPELLBOOK_EXPLORER
 
     if CONFIG is not None and EXECUTE_QUERY_TOOL is not None:
         return
@@ -97,13 +93,11 @@ def _ensure_initialized() -> None:
             http_config=CONFIG.http,
         )
     )
-    SUI_SERVICE = SuiService(QUERY_SERVICE)
     
     # Initialize Spellbook explorer (lazy, clones repo on first use)
     SPELLBOOK_EXPLORER = SpellbookExplorer()
 
     EXECUTE_QUERY_TOOL = ExecuteQueryTool(CONFIG, QUERY_SERVICE, QUERY_HISTORY)
-    SUI_OVERVIEW_TOOL = SuiPackageOverviewTool(SUI_SERVICE)
 
     logger.info("spice-mcp server ready (fastmcp)!")
 
@@ -636,63 +630,6 @@ def spellbook_find_models(
         })
 
 
-@app.tool(
-    name="sui_package_overview",
-    title="Sui Package Overview",
-    description="Compact overview for Sui package activity.",
-    tags={"sui"},
-)
-def sui_package_overview(
-    packages: list[str],
-    hours: int = 72,
-    timeout_seconds: float | None = 30,
-) -> dict[str, Any]:
-    _ensure_initialized()
-    assert SUI_OVERVIEW_TOOL is not None
-    try:
-        return SUI_OVERVIEW_TOOL.execute(
-            packages=packages, hours=hours, timeout_seconds=timeout_seconds
-        )
-    except Exception as e:
-        return error_response(e, context={
-            "tool": "sui_package_overview",
-            "packages": packages,
-            "hours": hours,
-        })
-
-
-@app.resource(uri="spice:sui/events_preview/{hours}/{limit}/{packages}", name="Sui Events Preview", description="Preview Sui events (3-day default) for comma-separated packages; returns JSON.")
-def sui_events_preview_resource(hours: str, limit: str, packages: str) -> str:
-    import json
-
-    try:
-        hh = int(hours)
-    except Exception:
-        hh = 72
-    try:
-        ll = int(limit)
-    except Exception:
-        ll = 50
-    pkgs = []
-    if packages and packages != "_":
-        pkgs = [p.strip() for p in packages.split(",") if p.strip()]
-
-    _ensure_initialized()
-    assert SUI_SERVICE is not None
-    try:
-        result = SUI_SERVICE.events_preview(pkgs, hours=hh, limit=ll)
-        payload = {"ok": True, **result}
-    except Exception as exc:
-        payload = error_response(
-            exc,
-            context={
-                "resource": "sui_events_preview",
-                "packages": pkgs,
-                "hours": hh,
-                "limit": ll,
-            },
-        )
-    return json.dumps(payload)
 
 
 # Resources
@@ -740,43 +677,6 @@ def sql_artifact(sha: str) -> str:
             return f.read()
     except Exception:
         return ""
-
-
-@app.resource(
-    uri="spice:sui/package_overview/{hours}/{timeout_seconds}/{packages}",
-    name="Sui Package Overview (cmd)",
-    description="Compact overview for Sui package activity as a command-style resource."
-)
-def sui_package_overview_cmd(hours: str, timeout_seconds: str, packages: str) -> str:
-    import json
-
-    try:
-        hh = int(hours)
-    except Exception:
-        hh = 72
-    try:
-        tt = float(timeout_seconds)
-    except Exception:
-        tt = 30.0
-    pkgs = []
-    if packages and packages != "_":
-        pkgs = [p.strip() for p in packages.split(",") if p.strip()]
-
-    _ensure_initialized()
-    assert SUI_SERVICE is not None
-    try:
-        result = SUI_SERVICE.package_overview(pkgs, hours=hh, timeout_seconds=tt)
-    except Exception as exc:
-        result = error_response(
-            exc,
-            context={
-                "resource": "sui_package_overview",
-                "packages": pkgs,
-                "hours": hh,
-                "timeout_seconds": tt,
-            },
-        )
-    return json.dumps(result)
 
 
 def main() -> None:

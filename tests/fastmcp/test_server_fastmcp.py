@@ -16,7 +16,6 @@ def test_fastmcp_startup_initializes_tools(monkeypatch, tmp_path):
 
     # Assert: tool instances created
     assert server.EXECUTE_QUERY_TOOL is not None
-    assert server.SUI_OVERVIEW_TOOL is not None
 
 
 def test_health_tool_executes(monkeypatch, tmp_path):
@@ -82,7 +81,6 @@ def test_fastmcp_registers_tools_and_schemas(monkeypatch, tmp_path):
 
     # Test that our tools are initialized and callable
     assert server.EXECUTE_QUERY_TOOL is not None
-    assert server.SUI_OVERVIEW_TOOL is not None
     
     # Test that FastMCP tool wrappers exist and contain our synchronous functions
     assert hasattr(server.dune_query, 'fn')
@@ -93,12 +91,9 @@ def test_fastmcp_registers_tools_and_schemas(monkeypatch, tmp_path):
     assert callable(server.dune_find_tables.fn)
     assert hasattr(server.dune_describe_table, 'fn')
     assert callable(server.dune_describe_table.fn)
-    assert hasattr(server.sui_package_overview, 'fn')
-    assert callable(server.sui_package_overview.fn)
     
     # Verify tools have execute methods where applicable
     assert hasattr(server.EXECUTE_QUERY_TOOL, 'execute')
-    assert hasattr(server.SUI_OVERVIEW_TOOL, 'execute')
 
 
 def test_server_registration_metadata(monkeypatch, tmp_path):
@@ -109,12 +104,10 @@ def test_server_registration_metadata(monkeypatch, tmp_path):
 
     server.CONFIG = None
     server.EXECUTE_QUERY_TOOL = None
-    server.SUI_OVERVIEW_TOOL = None
     server.QUERY_HISTORY = None
     server.DUNE_ADAPTER = None
     server.QUERY_SERVICE = None
     server.DISCOVERY_SERVICE = None
-    server.SUI_SERVICE = None
 
     server._ensure_initialized()
 
@@ -127,13 +120,9 @@ def test_server_registration_metadata(monkeypatch, tmp_path):
     assert callable(server.dune_find_tables.fn)
     assert hasattr(server.dune_describe_table, 'fn')
     assert callable(server.dune_describe_table.fn)
-    assert hasattr(server.sui_package_overview, 'fn')
-    assert callable(server.sui_package_overview.fn)
     
     # Test that resource wrappers exist and contain our synchronous functions
     assert hasattr(server.history_tail, 'fn')
     assert callable(server.history_tail.fn)
     assert hasattr(server.sql_artifact, 'fn')
     assert callable(server.sql_artifact.fn)
-    assert hasattr(server.sui_events_preview_resource, 'fn')
-    assert callable(server.sui_events_preview_resource.fn)

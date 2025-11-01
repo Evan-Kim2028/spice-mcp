@@ -1,7 +1,8 @@
 # spice-mcp
 
-spice-mcp is an MCP server for [Dune](https://dune.com/) Analytics. It wraps a curated subset of the original Spice client inside a clean architecture (`core` models/ports → `adapters.dune` → service layer → FastMCP tools) and adds agent-friendly workflows for discovery and Sui package exploration. Results are Polars-first in Python and compact, token-efficient in MCP responses.
+spice-mcp is an MCP server for [Dune](https://dune.com/) Analytics. It wraps a curated subset of the original Spice client inside a clean architecture (`core` models/ports → `adapters.dune` → service layer → FastMCP tools) and adds agent-friendly workflows for discovery. Results are Polars-first in Python and compact, token-efficient in MCP responses.
 
+[![PyPI version](https://img.shields.io/pypi/v/spice-mcp.svg)](https://pypi.org/project/spice-mcp/)
 <a href="https://glama.ai/mcp/servers/@Evan-Kim2028/spice-mcp">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@Evan-Kim2028/spice-mcp/badge" alt="Spice MCP server" />
 </a>
@@ -14,16 +15,17 @@ This project uses FastMCP for typed, decorator-registered tools and resources.
 - Polars LazyFrame-first pipeline: results stay lazy until explicitly materialized
 - Ports/adapters layering for maintainable integrations ([docs/architecture.md](docs/architecture.md))
 - Discovery utilities (find schemas/tables, describe columns)
-- Sui package workflows (events/transactions/objects) with safe defaults
 - JSONL query history + SQL artifacts (SHA-256) for reproducibility
-- Rich MCP surface: query info/run, discovery, health, Sui, and Dune admin (create/update/fork)
+- Rich MCP surface: query info/run, discovery, health, and Dune admin (create/update/fork)
 
 ## What is Dune?
 [Dune](https://dune.com/) is a crypto data platform providing curated blockchain datasets and a public API to run and fetch query results. See the [Dune Docs](https://dune.com/docs) and [Dune API](https://dune.com/docs/api/) for full details.
 
 ## Quick Start
 - Export `DUNE_API_KEY` in your shell (the server can also load a local `.env`; set `SPICE_MCP_SKIP_DOTENV=1` to skip during tests).
-- Install dependencies (`uv sync` or `pip install -e .`).
+- Install from PyPI: `uv pip install spice-mcp`
+- Or install from source:
+  - `uv sync` then `uv pip install -e .`
 - Start the FastMCP stdio server:
   - `python -m spice_mcp.mcp.server --env PYTHONPATH=$(pwd)/src`
   - or install the console script via `uv tool install .` and run `spice-mcp`.
@@ -34,9 +36,12 @@ To use spice-mcp with Cursor IDE:
 
 1. **Install the MCP Server**:
    ```bash
-   # Install dependencies and package
+   # Install from PyPI (recommended)
+   uv pip install spice-mcp
+   
+   # Or install from source
    uv sync
-   pip install -e .
+   uv pip install -e .
    
    # Or install via uv tool (creates console script)
    uv tool install .
@@ -80,7 +85,6 @@ To use spice-mcp with Cursor IDE:
    - `dune_query`: Run Dune queries by ID, URL, or raw SQL
    - `dune_find_tables`: Search schemas and list tables
    - `dune_describe_table`: Get column metadata
-   - `sui_package_overview`: Analyze Sui packages
    - `dune_health_check`: Verify API connection
 
 **Tip**: Create a `.env` file in your project root with `DUNE_API_KEY=your-key-here` for easier configuration.
@@ -103,9 +107,6 @@ All tools expose typed parameters, titles, and tags; failures return a consisten
 
 - `dune_describe_table` (Describe Table, tags: dune, schema)
   - Column metadata for `schema.table` (Dune types + Polars inferred dtypes when available).
-
-- `sui_package_overview` (Sui Package Overview, tag: sui)
-  - Compact Sui activity overview for `packages[]` with `hours` (default 72) and `timeout_seconds`.
 
 - Dune Admin tools (tags: dune, admin)
   - `dune_query_create(name, query_sql, description?, tags?, parameters?)`

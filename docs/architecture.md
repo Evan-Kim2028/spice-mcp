@@ -24,8 +24,8 @@
 ## Layers
 
 ### Core (`src/spice_mcp/core`)
-- `models.py` – dataclass representations for query requests, previews, metadata, schema descriptions, and Sui artefacts.
-- `ports.py` – protocols defining the boundaries (`QueryExecutor`, `CatalogExplorer`, `SuiInspector`).
+- `models.py` – dataclass representations for query requests, previews, metadata, schema descriptions.
+- `ports.py` – protocols defining the boundaries (`QueryExecutor`, `CatalogExplorer`).
 - `errors.py` – MCP-oriented error categorisation and envelope helpers (`error_response`).
 
 These modules contain zero infrastructure concerns; they define the shapes that higher layers orchestrate.
@@ -39,13 +39,12 @@ These modules contain zero infrastructure concerns; they define the shapes that 
 ### Service Layer (`src/spice_mcp/service_layer`)
 - `query_service.py` – orchestrates `QueryExecutor` calls and shapes the dictionaries returned to MCP tools. Handles `performance` passthrough, metadata merging, and preview formatting.
 - `discovery_service.py` – thin façade around `CatalogExplorer`, returning friendlier lists for schema/table introspection.
-- `sui_service.py` – composes `QueryService` to deliver Sui-specific behaviours (events preview, package overview defaults).
 
 Services are pure Python and easily testable with stubbed ports (see `tests/tools/test_query_service.py`).
 
 ### MCP Integration (`src/spice_mcp/mcp`)
 - `server.py` – FastMCP stdio bridge. Lazily initialises configuration, adapters, services, tools, and resources. Provides resource URIs and tools while keeping stdout clean.
-- `tools/execute_query.py`, `tools/sui_package_overview.py` – thin glue calling into services, handling logging/audit trails, and shaping agent-friendly responses.
+- `tools/execute_query.py` – thin glue calling into services, handling logging/audit trails, and shaping agent-friendly responses.
 - Uses `QueryHistory` (`src/spice_mcp/logging/query_history.py`) for JSONL audit trails and SQL artefact storage.
 
 ### Observability (`src/spice_mcp/observability`)

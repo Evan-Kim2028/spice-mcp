@@ -14,7 +14,6 @@ def test_missing_env_raises_on_init(monkeypatch):
     server.DUNE_ADAPTER = None
     server.QUERY_SERVICE = None
     server.DISCOVERY_SERVICE = None
-    server.SUI_SERVICE = None
     server.EXECUTE_QUERY_TOOL = None
 
     with pytest.raises(ValueError):
