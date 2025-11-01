@@ -7,7 +7,7 @@ spice-mcp Documentation
 - Architecture Overview: `docs/architecture.md`
 - Dune API Overview: `docs/dune_api.md`
 - Catalog Discovery Guide: `docs/discovery.md`
-- Sui Packages (Deepbook) Workflow: `docs/sui_packages.md`
+
 - Codex CLI MCP Setup: `docs/codex_cli.md`
 - Development & Testing: `docs/development.md`
 

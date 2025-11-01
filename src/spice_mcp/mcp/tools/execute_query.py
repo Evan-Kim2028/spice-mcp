@@ -80,7 +80,7 @@ class ExecuteQueryTool(MCPTool):
             "additionalProperties": False,
         }
 
-    async def execute(
+    def execute(
         self,
         *,
         query: str,
@@ -149,74 +149,41 @@ class ExecuteQueryTool(MCPTool):
                 return {"type": "execution", "execution_id": execution_id, "status": "submitted"}
 
             if format == "metadata":
-                try:
-                    meta = self.query_service.fetch_metadata(
-                        query=q_use,
-                        parameters=parameters,
-                        max_age=max_age,
-                        limit=limit,
-                        offset=offset,
-                        sample_count=sample_count,
-                        sort_by=sort_by,
-                        columns=columns,
-                        extras=extras,
-                        performance=performance,
-                    )
-                except TypeError:
-                    # Back-compat: older services without 'extras'
-                    meta = self.query_service.fetch_metadata(
-                        query=q_use,
-                        parameters=parameters,
-                        max_age=max_age,
-                        limit=limit,
-                        offset=offset,
-                        sample_count=sample_count,
-                        sort_by=sort_by,
-                        columns=columns,
-                        performance=performance,
-                    )
-                return {
-                    "type": "metadata",
-                    "metadata": meta.get("metadata"),
-                    "next_uri": meta.get("next_uri"),
-                    "next_offset": meta.get("next_offset"),
-                }
-            try:
-                result = self.query_service.execute(
+                meta = self.query_service.fetch_metadata(
                     query=q_use,
                     parameters=parameters,
-                    refresh=refresh,
                     max_age=max_age,
-                    poll=True,
-                    timeout_seconds=timeout_seconds,
                     limit=limit,
                     offset=offset,
                     sample_count=sample_count,
                     sort_by=sort_by,
                     columns=columns,
                     extras=extras,
-                    include_execution=True,
                     performance=performance,
-                    return_raw=format == "raw",
                 )
-            except TypeError:
-                # Back-compat: older services without 'extras'
-                result = self.query_service.execute(
-                    query=q_use,
-                    parameters=parameters,
-                    refresh=refresh,
-                    max_age=max_age,
-                    poll=True,
-                    timeout_seconds=timeout_seconds,
-                    limit=limit,
-                    offset=offset,
-                    sample_count=sample_count,
-                    sort_by=sort_by,
-                    columns=columns,
-                    include_execution=True,
-                    performance=performance,
-                    return_raw=format == "raw",
-                )
+                return {
+                    "type": "metadata",
+                    "metadata": meta.get("metadata"),
+                    "next_uri": meta.get("next_uri"),
+                    "next_offset": meta.get("next_offset"),
+                }
+            result = self.query_service.execute(
+                query=q_use,
+                parameters=parameters,
+                refresh=refresh,
+                max_age=max_age,
+                poll=True,
+                timeout_seconds=timeout_seconds,
+                limit=limit,
+                offset=offset,
+                sample_count=sample_count,
+                sort_by=sort_by,
+                columns=columns,
+                extras=extras,
+                include_execution=True,
+                performance=performance,
+                return_raw=format == "raw",
+            )
 
             duration_ms = int((time.time() - t0) * 1000)
             execution = result.get("execution", {})
@@ -313,6 +280,15 @@ class ExecuteQueryTool(MCPTool):
             if template_id_value is not None:
                 extra_fields["template_query_id"] = template_id_value
 
+            # Compute query SHA256 for better debugging
+            q_sha = None
+            try:
+                q_sha = self._persist_query_sql(q_use, q_type)
+                if q_sha:
+                    extra_fields["query_sha256"] = q_sha
+            except Exception:
+                pass
+
             self.query_history.record(
                 execution_id="unknown",
                 query_type=_categorize_query(query),
@@ -324,9 +300,22 @@ class ExecuteQueryTool(MCPTool):
             )
 
             enriched = self._enrich_error(exc)
-            context = {"tool": "dune_query", "query": q_use}
+            context = {"tool": "dune_query", "query": q_use, "query_type": _categorize_query(q_use)}
             if enriched:
                 context.update(enriched)
+            
+            # Add debugging information for raw SQL failures
+            if q_type == "raw_sql" and "could not determine execution" in str(exc):
+                context.update({
+                    "debug_info": "Raw SQL execution failed - check template query configuration and API key",
+                    "template_query_id": template_id_value,
+                    "environment_vars": {
+                        "SPICE_RAW_SQL_QUERY_ID": os.getenv("SPICE_RAW_SQL_QUERY_ID"),
+                        "DUNE_API_KEY_present": bool(os.getenv("DUNE_API_KEY"))
+                    },
+                    "suggested_action": "Retry or check if the template query (4060379) is accessible"
+                })
+            
             return error_response(exc, context=context)
 
     def _persist_query_sql(self, query: str, q_type: str) -> str | None:

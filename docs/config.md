@@ -15,7 +15,7 @@ Optional
   - `SPICE_LOGGING_ENABLED`: true/false (default: true)
 - Timeouts
   - `SPICE_TIMEOUT_SECONDS`: default polling timeout (seconds)
-  - `SPICE_MAX_CONCURRENT_QUERIES`: max concurrent dune_query executions (default: 5)
+  - `SPICE_MAX_CONCURRENT_QUERIES`: reserved for future concurrency control (default: 5, not currently enforced)
 - Raw SQL
   - `SPICE_RAW_SQL_QUERY_ID`: ID of the template query used to execute raw SQL (default: 4060379). Health is reported by `dune_health_check` when set.
 

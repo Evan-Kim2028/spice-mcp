@@ -228,13 +228,8 @@ class MCPToolSimulator:
         """Simulate an MCP tool call and normalize the response."""
         try:
             if hasattr(tool_instance, 'execute'):
-                if hasattr(tool_instance.execute, '__call__'):
-                    # Async function
-                    import asyncio
-                    result = asyncio.run(tool_instance.execute(**parameters))
-                else:
-                    # Regular function
-                    result = tool_instance.execute(**parameters)
+                # Execute synchronously
+                result = tool_instance.execute(**parameters)
             else:
                 raise ValueError("Tool instance doesn't have execute method")
             

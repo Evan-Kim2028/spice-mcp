@@ -19,15 +19,14 @@ class StubSuiService:
 
 
 @pytest.mark.mcp
-@pytest.mark.asyncio
-async def test_sui_events_preview_resource_success(monkeypatch):
+def test_sui_events_preview_resource_success(monkeypatch):
     from spice_mcp.mcp import server
 
     stub = StubSuiService({"rowcount": 1, "columns": ["package"], "data_preview": [{"package": "0x1"}]})
     monkeypatch.setattr(server, "_ensure_initialized", lambda: None)
     server.SUI_SERVICE = stub  # type: ignore[assignment]
 
-    raw = await server.sui_events_preview_resource.fn("72", "50", "0xabc")
+    raw = server.sui_events_preview_resource.fn("72", "50", "0xabc")
     resp = json.loads(raw)
 
     assert resp["ok"] is True
@@ -36,15 +35,14 @@ async def test_sui_events_preview_resource_success(monkeypatch):
 
 
 @pytest.mark.mcp
-@pytest.mark.asyncio
-async def test_sui_events_preview_resource_error(monkeypatch):
+def test_sui_events_preview_resource_error(monkeypatch):
     from spice_mcp.mcp import server
 
     stub = StubSuiService({}, raise_error=RuntimeError("boom"))
     monkeypatch.setattr(server, "_ensure_initialized", lambda: None)
     server.SUI_SERVICE = stub  # type: ignore[assignment]
 
-    raw = await server.sui_events_preview_resource.fn("invalid", "bad", "_")
+    raw = server.sui_events_preview_resource.fn("invalid", "bad", "_")
     resp = json.loads(raw)
 
     assert resp["ok"] is False

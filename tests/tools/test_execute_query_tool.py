@@ -26,6 +26,7 @@ class FakeQueryService:
         sample_count: int | None = None,
         sort_by: str | None = None,
         columns: list[str] | None = None,
+        extras: dict[str, Any] | None = None,
         include_execution: bool = True,
         performance: str | None = None,
         return_raw: bool = False,
@@ -52,7 +53,7 @@ def test_execute_query_tool_happy_path(tmp_path):
 
     tool = ExecuteQueryTool(cfg, svc, hist)
 
-    out = asyncio_run(tool.execute(query="SELECT 1", limit=2, format="preview"))
+    out = tool.execute(query="SELECT 1", limit=2, format="preview")
 
     assert out["type"] == "preview"
     assert out["rowcount"] == 2
@@ -69,7 +70,7 @@ def test_execute_query_tool_raw_format(tmp_path):
 
     tool = ExecuteQueryTool(cfg, svc, hist)
 
-    out = asyncio_run(tool.execute(query="SELECT 1", limit=2, format="raw"))
+    out = tool.execute(query="SELECT 1", limit=2, format="raw")
 
     assert out["type"] == "raw"
     assert out["data"] == [{"a": 1, "b": "x"}, {"a": 2, "b": "y"}]
@@ -84,7 +85,7 @@ def test_execute_query_tool_with_disabled_history():
 
     tool = ExecuteQueryTool(cfg, svc, hist)
 
-    out = asyncio_run(tool.execute(query="SELECT 1"))
+    out = tool.execute(query="SELECT 1")
 
     assert out["type"] == "preview"
     assert svc.calls[-1]["return_raw"] is False
@@ -98,7 +99,7 @@ def test_execute_query_tool_timeout_error(tmp_path):
 
     tool = ExecuteQueryTool(cfg, svc, hist)
 
-    out = asyncio_run(tool.execute(query="SELECT 1"))
+    out = tool.execute(query="SELECT 1")
 
     assert out["ok"] is False
     assert out["error"]["code"] == "QUERY_TIMEOUT"
@@ -112,19 +113,9 @@ def test_execute_query_tool_rate_limit(tmp_path):
 
     tool = ExecuteQueryTool(cfg, svc, hist)
 
-    out = asyncio_run(tool.execute(query="SELECT 1"))
+    out = tool.execute(query="SELECT 1")
 
     assert out["ok"] is False
     assert out["error"]["code"] == "RATE_LIMIT"
 
 
-def asyncio_run(coro):
-    import asyncio
-
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-    if loop and loop.is_running():
-        raise RuntimeError("asyncio_run should not be called from a running event loop")
-    return asyncio.run(coro)

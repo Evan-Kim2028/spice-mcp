@@ -9,7 +9,6 @@ import os
 import sys
 import time
 import json
-import asyncio
 from pathlib import Path
 from typing import Dict, Any, Tuple, List, Optional
 from concurrent.futures import ThreadPoolExecutor

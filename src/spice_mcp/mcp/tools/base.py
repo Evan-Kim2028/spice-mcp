@@ -20,7 +20,7 @@ class MCPTool(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def execute(self, **kwargs) -> dict[str, Any]:
+    def execute(self, **kwargs) -> dict[str, Any]:
         """Execute tool logic and return result dictionary."""
         raise NotImplementedError
 

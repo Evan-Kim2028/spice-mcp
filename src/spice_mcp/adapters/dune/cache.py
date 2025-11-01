@@ -51,39 +51,7 @@ def load_from_cache(
         return None, execution
 
 
-async def async_load_from_cache(
-    execute_kwargs: _extract.ExecuteKwargs,
-    result_kwargs: _extract.RetrievalKwargs,
-    output_kwargs: _extract.OutputKwargs,
-) -> tuple[
-    pl.DataFrame | tuple[pl.DataFrame, Execution] | None, Execution | None
-]:
-    # get latest execution
-    execution = await _extract.async_get_latest_execution(execute_kwargs)
-    if execution is None:
-        return None, None
-
-    # build cache path
-    cache_path = _build_cache_path(
-        execution=execution,
-        execute_kwargs=execute_kwargs,
-        result_kwargs=result_kwargs,
-        cache_dir=output_kwargs['cache_dir'],
-    )
-
-    # load cache result
-    if os.path.exists(cache_path):
-        import polars as pl
-
-        if result_kwargs['verbose']:
-            print('loading dune query result from cache')
-        df = await pl.scan_parquet(cache_path).collect_async()
-        if output_kwargs['include_execution']:
-            return (df, execution), execution
-        else:
-            return df, execution
-    else:
-        return None, execution
+## Removed async cache loader; synchronous load_from_cache should be used exclusively.
 
 
 def save_to_cache(
@@ -113,7 +81,7 @@ def save_to_cache(
     # save to cache
     tmp_path = (
         cache_path + '_tmp_' + secrets.token_hex(8)
-    )  # add for if running in parallel
+    )  # add tmp suffix to avoid conflicts during writes
     df.write_parquet(tmp_path)
     shutil.move(tmp_path, cache_path)
 

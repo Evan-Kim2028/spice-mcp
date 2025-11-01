@@ -1,8 +1,7 @@
 import pytest
 
 
-@pytest.mark.asyncio
-async def test_missing_env_raises_on_init(monkeypatch):
+def test_missing_env_raises_on_init(monkeypatch):
     # Ensure no API key so Config.from_env fails
     monkeypatch.delenv("DUNE_API_KEY", raising=False)
     monkeypatch.setenv("SPICE_MCP_SKIP_DOTENV", "1")

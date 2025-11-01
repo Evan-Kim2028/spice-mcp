@@ -40,6 +40,7 @@ def mock_server(monkeypatch, tmp_path):
             sample_count=None,
             sort_by=None,
             columns=None,
+            extras=None,
             include_execution=True,
             performance=None,
             return_raw: bool = False,
@@ -69,6 +70,7 @@ def mock_server(monkeypatch, tmp_path):
             sample_count=None,
             sort_by=None,
             columns=None,
+            extras=None,
             performance=None,
         ):
             return {
