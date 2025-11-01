@@ -1,177 +1,116 @@
 # spice-mcp
 
-spice-mcp is an MCP server for [Dune](https://dune.com/) Analytics. It wraps a curated subset of the original Spice client inside a clean architecture (`core` models/ports → `adapters.dune` → service layer → FastMCP tools) and adds agent-friendly workflows for discovery. Results are Polars-first in Python and compact, token-efficient in MCP responses.
-
 [![PyPI version](https://img.shields.io/pypi/v/spice-mcp.svg)](https://pypi.org/project/spice-mcp/)
 <a href="https://glama.ai/mcp/servers/@Evan-Kim2028/spice-mcp">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/@Evan-Kim2028/spice-mcp/badge" alt="Spice MCP server" />
 </a>
 
-Requirements: Python 3.13+
+An MCP server that provides AI agents with direct access to [Dune Analytics](https://dune.com/) data. Execute queries, discover schemas and tables, and manage saved queries—all through a clean, type-safe interface optimized for AI workflows.
 
-This project uses FastMCP for typed, decorator-registered tools and resources.
+## Why spice-mcp?
 
-## Highlights
-- Polars LazyFrame-first pipeline: results stay lazy until explicitly materialized
-- Ports/adapters layering for maintainable integrations ([docs/architecture.md](docs/architecture.md))
-- Discovery utilities (find schemas/tables, describe columns)
-- JSONL query history + SQL artifacts (SHA-256) for reproducibility
-- Rich MCP surface: query info/run, discovery, health, and Dune admin (create/update/fork)
-
-## What is Dune?
-[Dune](https://dune.com/) is a crypto data platform providing curated blockchain datasets and a public API to run and fetch query results. See the [Dune Docs](https://dune.com/docs) and [Dune API](https://dune.com/docs/api/) for full details.
+- **Agent-friendly**: Designed for AI agents using the Model Context Protocol (MCP)
+- **Efficient**: Polars-first pipeline keeps data lazy until needed, reducing memory usage
+- **Discovery**: Built-in tools to explore Dune's extensive blockchain datasets
+- **Type-safe**: Fully typed parameters and responses with FastMCP
+- **Reproducible**: Automatic query history logging and SQL artifact storage
 
 ## Quick Start
-- Export `DUNE_API_KEY` in your shell (the server can also load a local `.env`; set `SPICE_MCP_SKIP_DOTENV=1` to skip during tests).
-- Install from PyPI: `uv pip install spice-mcp`
-- Or install from source:
-  - `uv sync` then `uv pip install -e .`
-- Start the FastMCP stdio server:
-  - `python -m spice_mcp.mcp.server --env PYTHONPATH=$(pwd)/src`
-  - or install the console script via `uv tool install .` and run `spice-mcp`.
 
-## Cursor IDE Setup
-
-To use spice-mcp with Cursor IDE:
-
-1. **Install the MCP Server**:
+1. **Install**:
    ```bash
-   # Install from PyPI (recommended)
    uv pip install spice-mcp
-   
-   # Or install from source
-   uv sync
-   uv pip install -e .
-   
-   # Or install via uv tool (creates console script)
-   uv tool install .
    ```
 
-2. **Configure Cursor**:
-   - Open Cursor Settings → MCP Servers
-   - Add new MCP server configuration:
+2. **Set API key** (choose one method):
+   - **Option A**: Create a `.env` file in your project root:
+     ```bash
+     echo "DUNE_API_KEY=your-api-key-here" > .env
+     ```
+   - **Option B**: Export in your shell:
+     ```bash
+     export DUNE_API_KEY=your-api-key-here
+     ```
+
+3. **Use with Cursor IDE**:
+   Add to Cursor Settings → MCP Servers:
    ```json
    {
      "name": "spice-mcp",
      "command": "spice-mcp",
      "env": {
        "DUNE_API_KEY": "your-dune-api-key-here"
-     },
-     "disabled": false
-   }
-   ```
-   Alternatively, if you prefer running from source:
-   ```json
-   {
-     "name": "spice-mcp", 
-     "command": "python",
-     "args": ["-m", "spice_mcp.mcp.server"],
-     "env": {
-       "PYTHONPATH": "/path/to/your/spice-mcp/src",
-       "DUNE_API_KEY": "your-dune-api-key-here"
-     },
-     "disabled": false
+     }
    }
    ```
 
-3. **Restart Cursor** to load the MCP server
+**Note**: Query history logging is enabled by default. Logs are saved to `logs/queries.jsonl` (or `~/.spice_mcp/logs/queries.jsonl` if not in a project directory). To customize paths, set `SPICE_QUERY_HISTORY` and `SPICE_ARTIFACT_ROOT` environment variables.
 
-4. **Verify Connection**:
-   - Open Cursor and use the command palette (Cmd/Ctrl + Shift + P)
-   - Search for "MCP" or "spice" commands
-   - Test with `dune_health_check` to verify the connection
+## Core Tools
 
-5. **Available Tools in Cursor**:
-   - `dune_query`: Run Dune queries by ID, URL, or raw SQL
-   - `dune_find_tables`: Search schemas and list tables
-   - `dune_describe_table`: Get column metadata
-   - `dune_health_check`: Verify API connection
-
-**Tip**: Create a `.env` file in your project root with `DUNE_API_KEY=your-key-here` for easier configuration.
-
-## MCP Tools and Features
-
-All tools expose typed parameters, titles, and tags; failures return a consistent error envelope.
-
-- `dune_query_info` (Query Info, tags: dune, query)
-  - Fetch saved-query metadata by ID/URL (name, parameters, tags, SQL, version).
-
-- `dune_query` (Run Dune Query, tags: dune, query)
-  - Execute by ID/URL/raw SQL with parameters. Supports `refresh`, `max_age`, `limit/offset`, `sample_count`, `sort_by`, `columns`, and `format` = `preview|raw|metadata|poll`; accepts `timeout_seconds`.
-
-- `dune_health_check` (Health Check, tag: health)
-  - Checks API key presence, query-history path, logging enabled; best-effort template check when configured.
-
-- `dune_find_tables` (Find Tables, tags: dune, schema)
-  - Search schemas by keyword and/or list tables in a schema (`limit`).
-
-- `dune_describe_table` (Describe Table, tags: dune, schema)
-  - Column metadata for `schema.table` (Dune types + Polars inferred dtypes when available).
-
-- Dune Admin tools (tags: dune, admin)
-  - `dune_query_create(name, query_sql, description?, tags?, parameters?)`
-  - `dune_query_update(query_id, name?, query_sql?, description?, tags?, parameters?)`
-  - `dune_query_fork(source_query_id, name?)`
-
-### Resources
-- `spice:history/tail/{n}` — tail last N lines of query history (1..1000)
-- `spice:artifact/{sha}` — fetch stored SQL by 64-hex SHA-256
-- `spice:sui/events_preview/{hours}/{limit}/{packages}` — Sui events preview (JSON)
-- `spice:sui/package_overview/{hours}/{timeout_seconds}/{packages}` — Sui overview (JSON)
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `dune_query` | Execute queries by ID, URL, or raw SQL | `query` (str), `parameters?`, `limit?`, `offset?`, `format?` (`preview\|raw\|metadata\|poll`), `refresh?`, `timeout_seconds?` |
+| `dune_query_info` | Get metadata for a saved query | `query` (str - ID or URL) |
+| `dune_discover` | Unified discovery across Dune API and Spellbook | `keyword?`, `schema?`, `limit?`, `source?` (`dune\|spellbook\|both`), `include_columns?` |
+| `dune_find_tables` | Search schemas and list tables | `keyword?`, `schema?`, `limit?` |
+| `dune_describe_table` | Get column metadata for a table | `schema` (str), `table` (str) |
+| `spellbook_find_models` | Search Spellbook dbt models | `keyword?`, `schema?`, `limit?`, `include_columns?` |
+| `dune_health_check` | Verify API key and configuration | (no parameters) |
+| `dune_query_create` | Create a new saved query | `name`, `query_sql`, `description?`, `tags?`, `parameters?` |
+| `dune_query_update` | Update an existing saved query | `query_id`, `name?`, `query_sql?`, `description?`, `tags?`, `parameters?` |
+| `dune_query_fork` | Fork an existing saved query | `source_query_id`, `name?` |
 
 ## Resources
 
-- `spice:history/tail/{n}`
-  - Last `n` lines from the query-history JSONL, clamped to [1, 1000]
+- `spice:history/tail/{n}` — View last N lines of query history (1-1000)
+- `spice:artifact/{sha}` — Retrieve stored SQL by SHA-256 hash
 
-- `spice:artifact/{sha}`
-  - Returns stored SQL for the SHA-256 (validated as 64 lowercase hex)
+## What is Dune?
 
-Tests
-- Offline/unit tests (no network) live under `tests/offline/` and `tests/http_stubbed/`.
-- Live tests under `tests/live/` are skipped by default; enable with `SPICE_TEST_LIVE=1` and a valid `DUNE_API_KEY`.
-- Comprehensive scripted runner (tiered):
-  - Run all tiers: `python tests/scripts/comprehensive_test_runner.py`
-  - Select tiers: `python tests/scripts/comprehensive_test_runner.py -t 1 -t 3`
-  - Stop on first failure: `python tests/scripts/comprehensive_test_runner.py --stop`
-  - Optional JUnit export: `python tests/scripts/comprehensive_test_runner.py --junit tests/scripts/report.xml`
-- Pytest directly (offline/default): `uv run pytest -q -m "not live" --cov=src/spice_mcp --cov-report=term-missing`
+[Dune](https://dune.com/) is a crypto data platform providing curated blockchain datasets and a public API. It aggregates on-chain data from Ethereum, Solana, Polygon, and other chains into queryable SQL tables. See the [Dune Docs](https://dune.com/docs) for more information.
 
-Core Tools (with parameters)
-- `dune_query`
-  - Use: Preview/query results by ID, URL, or raw SQL (Polars preview + Dune metadata/pagination).
-  - Params: `query` (string), `parameters?` (object), `performance?` ('medium'|'large'), `limit?` (int), `offset?` (int), `sort_by?` (string), `columns?` (string[]), `sample_count?` (int), `refresh?` (bool), `max_age?` (number), `timeout_seconds?` (number), `format?` ('preview'|'raw'|'metadata').
-  - Output: `type`, `rowcount`, `columns`, `data_preview`, `execution_id`, `duration_ms`, `metadata?`, `next_uri?`, `next_offset?`.
-- `dune_find_tables`
-  - Use: Search schemas by keyword and/or list tables for a schema.
-  - Params: `keyword?` (string), `schema?` (string), `limit?` (int)
-  - Output: `schemas?` (string[]), `tables?` (string[])
-- `dune_describe_table`
-  - Use: Column descriptions for `schema.table` via SHOW + fallback to 1-row sample inference.
-  - Params: `schema` (string), `table` (string)
-  - Output: `columns` ([{ name, dune_type?, polars_dtype?, extra?, comment? }])
-- `sui_package_overview`
-  - Use: Small-window overview for Sui packages (events/transactions/objects) with timeout handling.
-  - Params: `packages` (string[]), `hours?` (int, default 72), `timeout_seconds?` (number, default 30)
-  - Output: best-effort counts and previews; may include `*_timeout`/`*_error`
-- `dune_health_check`
-  - Use: Verify API key presence and logging paths
-  - Output: `api_key_present`, `query_history_path`, `logging_enabled`, `status`
+## Installation
 
-## Docs
-- See [docs/index.md](docs/index.md) for full documentation:
-  - Dune API structure and capabilities: [docs/dune_api.md](docs/dune_api.md)
-  - Discovery patterns and examples: [docs/discovery.md](docs/discovery.md)
-  
-  - Tool reference and schemas: [docs/tools.md](docs/tools.md)
-  - Codex CLI + tooling integration: [docs/codex_cli.md](docs/codex_cli.md), [docs/codex_cli_tools.md](docs/codex_cli_tools.md)
-  - Architecture overview: [docs/architecture.md](docs/architecture.md)
-  - Installation and configuration: [docs/installation.md](docs/installation.md), [docs/config.md](docs/config.md)
-  - Development and linting: [docs/development.md](docs/development.md)
+**From PyPI** (recommended):
+```bash
+uv pip install spice-mcp
+```
 
-Notes
-- Legacy Spice code now lives under `src/spice_mcp/adapters/dune` (extract, cache, urls, types).
-- Ports and models live in `src/spice_mcp/core`; services consume ports and are exercised by FastMCP tools.
-- Query history and SQL artefacts are always-on (see `src/spice_mcp/logging/query_history.py`).
-- To bypass dot-env loading during tests/CI, export `SPICE_MCP_SKIP_DOTENV=1`.
-- LazyFrames everywhere: eager `.collect()` or `pl.DataFrame` usage outside dedicated helpers is blocked by `tests/style/test_polars_lazy.py`; materialization helpers live in `src/spice_mcp/polars_utils.py`.
+**From source**:
+```bash
+git clone https://github.com/Evan-Kim2028/spice-mcp.git
+cd spice-mcp
+uv sync
+uv pip install -e .
+```
+
+**Requirements**: Python 3.13+
+
+## Documentation
+
+- [Tool Reference](docs/tools.md) — Complete tool documentation with parameters
+- [Architecture](docs/architecture.md) — Code structure and design patterns
+- [Discovery Guide](docs/discovery.md) — How to explore Dune schemas and tables
+- [Dune API Guide](docs/dune_api.md) — Understanding Dune's data structure
+- [Configuration](docs/config.md) — Environment variables and settings
+
+## Development
+
+```bash
+# Install dependencies
+uv sync
+
+# Run tests
+uv run pytest
+
+# Type checking
+uv run mypy src/spice_mcp
+
+# Linting
+uv run ruff check src tests
+```
+
+## License
+
+See [LICENSE](LICENSE) file for details.
