@@ -1,8 +1,8 @@
-name: CI
+name: CI (disabled by default)
 
 on:
-  push:
-  pull_request:
+  # Disable automatic triggers; allow manual runs only
+  workflow_dispatch:
 
 permissions:
   contents: read
