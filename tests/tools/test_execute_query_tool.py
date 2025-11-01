@@ -26,6 +26,7 @@ class FakeQueryService:
         sample_count: int | None = None,
         sort_by: str | None = None,
         columns: list[str] | None = None,
+        extras: dict[str, Any] | None = None,
         include_execution: bool = True,
         performance: str | None = None,
         return_raw: bool = False,
