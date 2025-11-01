@@ -149,74 +149,41 @@ class ExecuteQueryTool(MCPTool):
                 return {"type": "execution", "execution_id": execution_id, "status": "submitted"}
 
             if format == "metadata":
-                try:
-                    meta = self.query_service.fetch_metadata(
-                        query=q_use,
-                        parameters=parameters,
-                        max_age=max_age,
-                        limit=limit,
-                        offset=offset,
-                        sample_count=sample_count,
-                        sort_by=sort_by,
-                        columns=columns,
-                        extras=extras,
-                        performance=performance,
-                    )
-                except TypeError:
-                    # Back-compat: older services without 'extras'
-                    meta = self.query_service.fetch_metadata(
-                        query=q_use,
-                        parameters=parameters,
-                        max_age=max_age,
-                        limit=limit,
-                        offset=offset,
-                        sample_count=sample_count,
-                        sort_by=sort_by,
-                        columns=columns,
-                        performance=performance,
-                    )
-                return {
-                    "type": "metadata",
-                    "metadata": meta.get("metadata"),
-                    "next_uri": meta.get("next_uri"),
-                    "next_offset": meta.get("next_offset"),
-                }
-            try:
-                result = self.query_service.execute(
+                meta = self.query_service.fetch_metadata(
                     query=q_use,
                     parameters=parameters,
-                    refresh=refresh,
                     max_age=max_age,
-                    poll=True,
-                    timeout_seconds=timeout_seconds,
                     limit=limit,
                     offset=offset,
                     sample_count=sample_count,
                     sort_by=sort_by,
                     columns=columns,
                     extras=extras,
-                    include_execution=True,
                     performance=performance,
-                    return_raw=format == "raw",
                 )
-            except TypeError:
-                # Back-compat: older services without 'extras'
-                result = self.query_service.execute(
-                    query=q_use,
-                    parameters=parameters,
-                    refresh=refresh,
-                    max_age=max_age,
-                    poll=True,
-                    timeout_seconds=timeout_seconds,
-                    limit=limit,
-                    offset=offset,
-                    sample_count=sample_count,
-                    sort_by=sort_by,
-                    columns=columns,
-                    include_execution=True,
-                    performance=performance,
-                    return_raw=format == "raw",
-                )
+                return {
+                    "type": "metadata",
+                    "metadata": meta.get("metadata"),
+                    "next_uri": meta.get("next_uri"),
+                    "next_offset": meta.get("next_offset"),
+                }
+            result = self.query_service.execute(
+                query=q_use,
+                parameters=parameters,
+                refresh=refresh,
+                max_age=max_age,
+                poll=True,
+                timeout_seconds=timeout_seconds,
+                limit=limit,
+                offset=offset,
+                sample_count=sample_count,
+                sort_by=sort_by,
+                columns=columns,
+                extras=extras,
+                include_execution=True,
+                performance=performance,
+                return_raw=format == "raw",
+            )
 
             duration_ms = int((time.time() - t0) * 1000)
             execution = result.get("execution", {})

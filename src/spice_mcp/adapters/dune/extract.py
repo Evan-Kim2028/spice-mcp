@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
-# Back-compat helpers expected by tests and adapter code
+# Internal helpers used by adapter code and tests
 
 def _is_sql(query: int | str) -> bool:
     if isinstance(query, int):
