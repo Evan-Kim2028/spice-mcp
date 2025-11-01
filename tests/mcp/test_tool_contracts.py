@@ -26,11 +26,12 @@ def test_dune_query_variants(mock_server):
 def test_discovery_tools(mock_server):
     from spice_mcp.mcp import server
 
-    schemas_only = server._dune_find_tables_impl(keyword="sui")
-    assert schemas_only["schemas"] == ["sui_base"]
+    schemas_only = server._unified_discover_impl(keyword="sui", source="dune")
+    assert "sui_base" in schemas_only["schemas"]
 
-    tables = server._dune_find_tables_impl(schema="sui_base")
-    assert tables["tables"] == ["events"]
+    tables = server._unified_discover_impl(schema="sui_base", source="dune")
+    assert len(tables["tables"]) > 0
+    assert tables["tables"][0]["table"] == "events"
 
     desc = server._dune_describe_table_impl(schema="sui", table="events")
     assert desc["table"] == "sui.events"

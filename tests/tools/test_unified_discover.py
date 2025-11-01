@@ -39,6 +39,27 @@ class StubDuneExplorer:
 
 class StubSpellbookExplorer:
     """Stub for Spellbook explorer."""
+    def __init__(self):
+        # Mock models cache structure matching real SpellbookExplorer
+        self._models_cache = {
+            "daily_spellbook": [
+                {
+                    "name": "layerzero_send",
+                    "schema": "daily_spellbook",
+                    "dune_schema": "layerzero",
+                    "dune_alias": "send",
+                    "dune_table": "layerzero.send",
+                },
+                {
+                    "name": "layerzero_chain_list",
+                    "schema": "daily_spellbook",
+                    "dune_schema": "layerzero",
+                    "dune_alias": "chain_list",
+                    "dune_table": "layerzero.chain_list",
+                },
+            ]
+        }
+
     def find_schemas(self, keyword: str):
         if "layerzero" in keyword.lower():
             return [SchemaMatch(schema="daily_spellbook")]
@@ -63,6 +84,17 @@ class StubSpellbookExplorer:
                 ],
             )
         raise ValueError(f"Table {schema}.{table} not found")
+    
+    def _load_models(self):
+        """Return mock models cache matching real SpellbookExplorer structure."""
+        return self._models_cache
+
+
+class StubVerificationService:
+    """Stub verification service that always returns True (all tables verified)."""
+    def verify_tables_batch(self, tables):
+        """Return True for all tables."""
+        return {f"{schema}.{table}": True for schema, table in tables}
 
 
 def test_unified_discover_spellbook_only(monkeypatch, tmp_path):
@@ -72,6 +104,7 @@ def test_unified_discover_spellbook_only(monkeypatch, tmp_path):
     
     server._ensure_initialized()
     server.SPELLBOOK_EXPLORER = StubSpellbookExplorer()
+    server.VERIFICATION_SERVICE = StubVerificationService()
     
     result = server._unified_discover_impl(keyword="layerzero", source="spellbook", include_columns=False)
     
@@ -107,6 +140,7 @@ def test_unified_discover_both_sources(monkeypatch, tmp_path):
     
     server._ensure_initialized()
     server.SPELLBOOK_EXPLORER = StubSpellbookExplorer()
+    server.VERIFICATION_SERVICE = StubVerificationService()
     stub_explorer = StubDuneExplorer()
     from spice_mcp.service_layer.discovery_service import DiscoveryService
     server.DISCOVERY_SERVICE = DiscoveryService(stub_explorer)
@@ -128,6 +162,7 @@ def test_unified_discover_multiple_keywords(monkeypatch, tmp_path):
     
     server._ensure_initialized()
     server.SPELLBOOK_EXPLORER = StubSpellbookExplorer()
+    server.VERIFICATION_SERVICE = StubVerificationService()
     
     result = server._unified_discover_impl(keyword=["layerzero", "bridge"], source="spellbook", include_columns=False)
     
@@ -144,6 +179,7 @@ def test_unified_discover_with_schema(monkeypatch, tmp_path):
     
     server._ensure_initialized()
     server.SPELLBOOK_EXPLORER = StubSpellbookExplorer()
+    server.VERIFICATION_SERVICE = StubVerificationService()
     
     result = server._unified_discover_impl(schema="daily_spellbook", source="spellbook", limit=10, include_columns=True)
     
@@ -162,6 +198,7 @@ def test_unified_discover_response_format(monkeypatch, tmp_path):
     
     server._ensure_initialized()
     server.SPELLBOOK_EXPLORER = StubSpellbookExplorer()
+    server.VERIFICATION_SERVICE = StubVerificationService()
     
     result = server._unified_discover_impl(keyword="layerzero", source="spellbook")
     
@@ -180,4 +217,37 @@ def test_unified_discover_response_format(monkeypatch, tmp_path):
         assert "fully_qualified_name" in table
         assert "source" in table
         assert table["source"] in ("dune", "spellbook")
+        
+        # Verify new fields for Spellbook models
+        if table["source"] == "spellbook":
+            assert "dune_schema" in table
+            assert "dune_alias" in table
+            assert "dune_table" in table
+            assert "verified" in table
+            assert table["verified"] is True
+
+
+def test_unified_discover_dune_tables_have_verified_fields(monkeypatch, tmp_path):
+    """Test that Dune tables include dune_table and verified fields."""
+    monkeypatch.setenv("DUNE_API_KEY", "test-key")
+    monkeypatch.setenv("SPICE_QUERY_HISTORY", str(tmp_path / "history.jsonl"))
+    
+    server._ensure_initialized()
+    stub_explorer = StubDuneExplorer()
+    from spice_mcp.service_layer.discovery_service import DiscoveryService
+    server.DISCOVERY_SERVICE = DiscoveryService(stub_explorer)
+    
+    # Use schema to get actual tables (not just schemas)
+    result = server._unified_discover_impl(schema="sui_base", source="dune")
+    
+    assert result["source"] == "dune"
+    assert len(result["tables"]) > 0
+    
+    # Verify all Dune tables have dune_table and verified fields
+    for table in result["tables"]:
+        assert table["source"] == "dune"
+        assert "dune_table" in table
+        assert table["dune_table"] == f"{table['schema']}.{table['table']}"
+        assert "verified" in table
+        assert table["verified"] is True
 

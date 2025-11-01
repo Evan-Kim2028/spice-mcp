@@ -87,8 +87,8 @@ def test_fastmcp_registers_tools_and_schemas(monkeypatch, tmp_path):
     assert callable(server.dune_query.fn)
     assert hasattr(server.dune_health_check, 'fn')
     assert callable(server.dune_health_check.fn)
-    assert hasattr(server.dune_find_tables, 'fn')
-    assert callable(server.dune_find_tables.fn)
+    assert hasattr(server.dune_discover, 'fn')
+    assert callable(server.dune_discover.fn)
     assert hasattr(server.dune_describe_table, 'fn')
     assert callable(server.dune_describe_table.fn)
     
@@ -116,8 +116,8 @@ def test_server_registration_metadata(monkeypatch, tmp_path):
     # Test that FastMCP tool wrappers exist and contain our synchronous functions
     assert hasattr(server.dune_query, 'fn')
     assert callable(server.dune_query.fn)
-    assert hasattr(server.dune_find_tables, 'fn')
-    assert callable(server.dune_find_tables.fn)
+    assert hasattr(server.dune_discover, 'fn')
+    assert callable(server.dune_discover.fn)
     assert hasattr(server.dune_describe_table, 'fn')
     assert callable(server.dune_describe_table.fn)
     

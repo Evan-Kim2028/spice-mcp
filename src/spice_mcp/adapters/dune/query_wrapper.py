@@ -6,8 +6,8 @@ the @overload decorators that FastMCP detects during runtime validation.
 
 from __future__ import annotations
 
-from typing import Any
 from collections.abc import Mapping, Sequence
+from typing import Any
 
 from ..http_client import HttpClient
 from .types import Execution, Performance, Query

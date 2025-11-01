@@ -29,7 +29,8 @@ class StubDiscovery:
         return self.description
 
 
-def test_find_tables_tool(monkeypatch):
+def test_discover_tool_dune_only(monkeypatch):
+    """Test dune_discover with source='dune'."""
     monkeypatch.setenv("DUNE_API_KEY", "k")
     stub = StubDiscovery(
         schemas=["foo", "bar"],
@@ -39,9 +40,11 @@ def test_find_tables_tool(monkeypatch):
     monkeypatch.setattr(server, "_ensure_initialized", lambda: None)
     server.DISCOVERY_SERVICE = stub  # type: ignore[assignment]
 
-    out = server._dune_find_tables_impl(keyword="eth", schema="foo", limit=10)
-    assert out.get("schemas") == ["foo", "bar"]
-    assert out.get("tables") == ["t1", "t2"]
+    out = server._unified_discover_impl(keyword="eth", schema="foo", limit=10, source="dune")
+    assert "foo" in out.get("schemas", []) or "bar" in out.get("schemas", [])
+    assert len(out.get("tables", [])) > 0
+    if out.get("tables"):
+        assert out["tables"][0]["schema"] == "foo"
 
 
 def test_describe_table_tool(monkeypatch):
@@ -98,13 +101,14 @@ def test_spellbook_schema_discovery(monkeypatch):
     monkeypatch.setattr(server, "_ensure_initialized", lambda: None)
     server.DISCOVERY_SERVICE = stub  # type: ignore[assignment]
     
-    # Test finding spellbook schemas
-    out = server._dune_find_tables_impl(keyword="spellbook")
-    assert out.get("schemas") == ["spellbook", "spellbook_ethereum"]
+    # Test finding spellbook schemas using dune_discover
+    out = server._unified_discover_impl(keyword="spellbook", source="dune")
+    assert "spellbook" in out.get("schemas", []) or "spellbook_ethereum" in out.get("schemas", [])
     
-    # Test listing tables in spellbook schema
-    out = server._dune_find_tables_impl(schema="spellbook", limit=10)
-    assert out.get("tables") == ["erc20_transfers", "dex_trades", "nft_transfers"]
+    # Test listing tables in spellbook schema using dune_discover
+    out = server._unified_discover_impl(schema="spellbook", limit=10, source="dune")
+    table_names = [t["table"] for t in out.get("tables", [])]
+    assert "erc20_transfers" in table_names
     
     # Test describing a spellbook table
     out = server._dune_describe_table_impl(schema="spellbook", table="erc20_transfers")

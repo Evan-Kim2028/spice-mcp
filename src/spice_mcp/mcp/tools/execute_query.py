@@ -6,6 +6,7 @@ from typing import Any
 
 from ...adapters.dune import urls as dune_urls
 from ...adapters.dune.query_wrapper import execute_query as execute_dune_query
+
 # Import user_agent from separate module to avoid importing overloaded functions
 from ...adapters.dune.user_agent import get_user_agent as get_dune_user_agent
 from ...adapters.http_client import HttpClient

@@ -54,8 +54,8 @@ Verify configuration
 - `codex mcp list` should list `spice_mcp_beta` with the python command and no secrets in Env.
 
 Try some tools
-- Find schemas
-  - `mcp__spice_mcp_beta__dune_find_tables {"keyword": "dex"}`
+- Find schemas and tables
+  - `mcp__spice_mcp_beta__dune_discover {"keyword": "dex", "source": "dune"}`
 - Describe a table
   - `mcp__spice_mcp_beta__dune_describe_table {"schema": "dex", "table": "trades"}`
 - Query preview (with metadata/pagination)

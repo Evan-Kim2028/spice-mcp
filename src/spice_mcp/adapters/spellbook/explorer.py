@@ -133,11 +133,43 @@ class SpellbookExplorer(CatalogExplorer):
                     if not schema_yml.exists():
                         schema_yml = sql_file.parent.parent / "schema.yml"
                     
+                    # Parse dbt config to get actual Dune table name
+                    config = self._parse_dbt_config(sql_file)
+
+                    # Ignore templated dbt config values like "{{ target.schema }}"
+                    def _is_templated(val: Any) -> bool:
+                        try:
+                            s = str(val)
+                        except Exception:
+                            return False
+                        return "{{" in s and "}}" in s
+
+                    raw_schema = config.get("schema")
+                    raw_alias = config.get("alias")
+
+                    dune_schema = (
+                        raw_schema.strip() if isinstance(raw_schema, str) else raw_schema
+                    )
+                    dune_alias = (
+                        raw_alias.strip() if isinstance(raw_alias, str) else raw_alias
+                    )
+
+                    # Fall back to original names when values are templated or empty
+                    if not dune_schema or _is_templated(dune_schema):
+                        dune_schema = schema_name
+                    if not dune_alias or _is_templated(dune_alias):
+                        dune_alias = model_name
+
+                    dune_table = f"{dune_schema}.{dune_alias}"
+                    
                     models[schema_name].append({
                         "name": model_name,
                         "file": sql_file,
                         "schema_yml": schema_yml if schema_yml.exists() else None,
                         "schema": schema_name,
+                        "dune_schema": dune_schema,
+                        "dune_alias": dune_alias,
+                        "dune_table": dune_table,
                     })
         
         self._models_cache = models
@@ -264,6 +296,58 @@ class SpellbookExplorer(CatalogExplorer):
         
         return []
 
+    def _parse_dbt_config(self, sql_file: Path) -> dict[str, str]:
+        """
+        Parse dbt config block from SQL file to extract schema and alias.
+        
+        Looks for patterns like:
+        {{ config(schema='sui_walrus', alias='base_table') }}
+        {{ config(schema="sui_walrus", alias="base_table") }}
+        
+        Returns dict with 'schema' and 'alias' keys, or empty dict if not found.
+        """
+        try:
+            with open(sql_file, encoding="utf-8") as f:
+                sql = f.read()
+            
+            # Match dbt config block: {{ config(...) }}
+            # Use non-greedy match to get first config block
+            config_match = re.search(
+                r"{{\s*config\s*\((.*?)\)\s*}}",
+                sql,
+                re.IGNORECASE | re.DOTALL,
+            )
+            
+            if not config_match:
+                return {}
+            
+            config_content = config_match.group(1)
+            result: dict[str, str] = {}
+            
+            # Extract schema parameter (supports single and double quotes)
+            schema_match = re.search(
+                r"schema\s*=\s*['\"]([^'\"]+)['\"]",
+                config_content,
+                re.IGNORECASE,
+            )
+            if schema_match:
+                result["schema"] = schema_match.group(1)
+            
+            # Extract alias parameter (supports single and double quotes)
+            alias_match = re.search(
+                r"alias\s*=\s*['\"]([^'\"]+)['\"]",
+                config_content,
+                re.IGNORECASE,
+            )
+            if alias_match:
+                result["alias"] = alias_match.group(1)
+            
+            return result
+        except Exception:
+            # On any error (file read, parsing, etc.), return empty dict
+            # This allows fallback to using schema_name and model_name
+            return {}
+
     def _parse_sql_columns(self, sql_file: Path) -> list[TableColumn]:
         """Parse SQL file to extract column names from SELECT statements."""
         try:
@@ -310,4 +394,3 @@ class SpellbookExplorer(CatalogExplorer):
             pass
         
         return []
-
