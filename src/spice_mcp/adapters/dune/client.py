@@ -47,10 +47,9 @@ class DuneAdapter(QueryExecutor, CatalogExplorer):
         self._ensure_api_key()
         start = time.time()
         q = request.query
-        if isinstance(q, str):
-            q_rewritten = _maybe_rewrite_show_sql(q)
-            if q_rewritten is not None:
-                q = q_rewritten
+        # Use native SHOW statements directly - they're faster than information_schema queries
+        # See issue #10: https://github.com/Evan-Kim2028/spice-mcp/issues/10
+        # Removed rewrite to avoid performance issues with information_schema queries
         result = _execute_dune_query(
             query_or_execution=q,
             verbose=False,
@@ -200,7 +199,9 @@ class DuneAdapter(QueryExecutor, CatalogExplorer):
     # Internal helpers --------------------------------------------------------------
     def _run_sql(self, sql: str, *, limit: int | None = None) -> pl.DataFrame:
         self._ensure_api_key()
-        sql_eff = _maybe_rewrite_show_sql(sql) or sql
+        # Use native SHOW statements directly - they're faster than information_schema queries
+        # See issue #10: https://github.com/Evan-Kim2028/spice-mcp/issues/10
+        sql_eff = sql
         df = _execute_dune_query(
             query_or_execution=sql_eff,
             verbose=False,
@@ -233,28 +234,12 @@ def _build_preview(lf: pl.LazyFrame, columns: list[str], rowcount: int) -> Resul
 
 
 def _maybe_rewrite_show_sql(sql: str) -> str | None:
-    """Rewrite certain SHOW statements to information_schema SELECTs for portability.
-
-    This allows running discovery-style commands through the parameterized raw SQL
-    template which expects SELECT statements.
+    """DEPRECATED: This function is no longer used.
+    
+    Native SHOW statements are now used directly as they're faster than
+    information_schema queries in Dune. See issue #10 for details.
+    
+    This function is kept for backward compatibility but is not called.
     """
-    s = sql.strip()
-    m = re.match(r"^SHOW\s+SCHEMAS\s+LIKE\s+'([^']+)'\s*;?$", s, flags=re.IGNORECASE)
-    if m:
-        pat = m.group(1)
-        return (
-            "SELECT schema_name AS Schema FROM information_schema.schemata "
-            f"WHERE schema_name LIKE '{pat}'"
-        )
-    if re.match(r"^SHOW\s+SCHEMAS\s*;?$", s, flags=re.IGNORECASE):
-        return "SELECT schema_name AS Schema FROM information_schema.schemata"
-
-    m = re.match(r"^SHOW\s+TABLES\s+FROM\s+([A-Za-z0-9_\.]+)\s*;?$", s, flags=re.IGNORECASE)
-    if m:
-        schema = m.group(1)
-        return (
-            "SELECT table_name AS Table FROM information_schema.tables "
-            f"WHERE table_schema = '{schema}'"
-        )
-
+    # Function body kept for reference but not executed
     return None

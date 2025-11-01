@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import re
 import time
 from typing import Any
 
@@ -101,8 +100,10 @@ class ExecuteQueryTool(MCPTool):
     ) -> dict[str, Any]:
         t0 = time.time()
         try:
-            # Rewrite SHOW statements to portable information_schema SELECTs
-            q_use = _maybe_rewrite_show_sql(query) or query
+            # Use native SHOW statements directly - they're faster than information_schema queries
+            # See issue #10: https://github.com/Evan-Kim2028/spice-mcp/issues/10
+            # Removed rewrite to avoid performance issues with information_schema queries
+            q_use = query
             # Poll-only: return execution handle without fetching results
             if format == "poll":
                 exec_obj = execute_dune_query(
@@ -395,22 +396,12 @@ def _categorize_query(q: str) -> str:
 
 
 def _maybe_rewrite_show_sql(sql: str) -> str | None:
-    s = sql.strip()
-    m = re.match(r"^SHOW\s+SCHEMAS\s+LIKE\s+'([^']+)'\s*;?$", s, flags=re.IGNORECASE)
-    if m:
-        pat = m.group(1)
-        return (
-            "SELECT schema_name AS Schema FROM information_schema.schemata "
-            f"WHERE schema_name LIKE '{pat}'"
-        )
-    if re.match(r"^SHOW\s+SCHEMAS\s*;?$", s, flags=re.IGNORECASE):
-        return "SELECT schema_name AS Schema FROM information_schema.schemata"
-
-    m = re.match(r"^SHOW\s+TABLES\s+FROM\s+([A-Za-z0-9_\.]+)\s*;?$", s, flags=re.IGNORECASE)
-    if m:
-        schema = m.group(1)
-        return (
-            "SELECT table_name AS Table FROM information_schema.tables "
-            f"WHERE table_schema = '{schema}'"
-        )
+    """DEPRECATED: This function is no longer used.
+    
+    Native SHOW statements are now used directly as they're faster than
+    information_schema queries in Dune. See issue #10 for details.
+    
+    This function is kept for backward compatibility but is not called.
+    """
+    # Function body kept for reference but not executed
     return None
