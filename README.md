@@ -24,6 +24,63 @@ This project uses FastMCP for typed, decorator-registered tools and resources.
   - `python -m spice_mcp.mcp.server --env PYTHONPATH=$(pwd)/src`
   - or install the console script via `uv tool install .` and run `spice-mcp`.
 
+## Cursor IDE Setup
+
+To use spice-mcp with Cursor IDE:
+
+1. **Install the MCP Server**:
+   ```bash
+   # Install dependencies and package
+   uv sync
+   pip install -e .
+   
+   # Or install via uv tool (creates console script)
+   uv tool install .
+   ```
+
+2. **Configure Cursor**:
+   - Open Cursor Settings → MCP Servers
+   - Add new MCP server configuration:
+   ```json
+   {
+     "name": "spice-mcp",
+     "command": "spice-mcp",
+     "env": {
+       "DUNE_API_KEY": "your-dune-api-key-here"
+     },
+     "disabled": false
+   }
+   ```
+   Alternatively, if you prefer running from source:
+   ```json
+   {
+     "name": "spice-mcp", 
+     "command": "python",
+     "args": ["-m", "spice_mcp.mcp.server"],
+     "env": {
+       "PYTHONPATH": "/path/to/your/spice-mcp/src",
+       "DUNE_API_KEY": "your-dune-api-key-here"
+     },
+     "disabled": false
+   }
+   ```
+
+3. **Restart Cursor** to load the MCP server
+
+4. **Verify Connection**:
+   - Open Cursor and use the command palette (Cmd/Ctrl + Shift + P)
+   - Search for "MCP" or "spice" commands
+   - Test with `dune_health_check` to verify the connection
+
+5. **Available Tools in Cursor**:
+   - `dune_query`: Run Dune queries by ID, URL, or raw SQL
+   - `dune_find_tables`: Search schemas and list tables
+   - `dune_describe_table`: Get column metadata
+   - `sui_package_overview`: Analyze Sui packages
+   - `dune_health_check`: Verify API connection
+
+**Tip**: Create a `.env` file in your project root with `DUNE_API_KEY=your-key-here` for easier configuration.
+
 ## MCP Tools and Features
 
 All tools expose typed parameters, titles, and tags; failures return a consistent error envelope.
