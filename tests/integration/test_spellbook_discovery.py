@@ -120,50 +120,47 @@ def test_spellbook_discovery_through_mcp_tool(monkeypatch, tmp_path):
 @pytest.mark.live
 def test_spellbook_discovery_live():
     """
-    Live test: Actually query Dune API to find spellbook schemas.
+    Live test: Actually clone and parse Spellbook GitHub repository.
     
     This requires:
     - SPICE_TEST_LIVE=1
-    - DUNE_API_KEY set
+    - Git available on system
     
     This verifies that:
-    1. The discovery can actually find spellbook schemas from Dune
-    2. Spellbook tables are accessible
-    3. Table descriptions work for spellbook tables
+    1. The explorer can clone the Spellbook GitHub repo
+    2. Can parse dbt models from the repo structure
+    3. Can find schemas/subprojects and list tables/models
+    4. Can describe models by parsing SQL/schema.yml
     """
     server._ensure_initialized()
     
-    # Test 1: Find spellbook schemas (actual Dune query)
-    print("\n🔍 Searching for spellbook schemas on Dune...")
-    result = server._dune_find_tables_impl(keyword="spellbook")
+    # Test 1: Find spellbook schemas/subprojects (parses GitHub repo)
+    print("\n🔍 Searching Spellbook GitHub repo for schemas...")
+    result = server._spellbook_find_models_impl(keyword="dex")
     
     assert "schemas" in result, "Result should contain 'schemas' key"
     schemas = result.get("schemas", [])
     print(f"   Found {len(schemas)} schemas: {schemas[:5]}...")
     
     if not schemas:
-        pytest.skip("No spellbook schemas found - may need to check Dune availability")
+        pytest.skip("No schemas found - may need to check git availability or repo access")
     
-    # Verify we found spellbook-related schemas
-    spellbook_schemas = [s for s in schemas if "spellbook" in s.lower()]
-    assert len(spellbook_schemas) > 0, f"Expected spellbook schemas, got: {schemas}"
-    
-    # Test 2: List tables in a spellbook schema
-    test_schema = spellbook_schemas[0]
-    print(f"\n📊 Listing tables in {test_schema}...")
-    result = server._dune_find_tables_impl(schema=test_schema, limit=20)
+    # Test 2: List tables/models in a schema
+    test_schema = schemas[0]
+    print(f"\n📊 Listing models in {test_schema} subproject...")
+    result = server._spellbook_find_models_impl(schema=test_schema, limit=20)
     
     assert "tables" in result
     tables = result.get("tables", [])
-    print(f"   Found {len(tables)} tables: {tables[:10]}...")
+    print(f"   Found {len(tables)} models: {tables[:10]}...")
     
     if not tables:
-        pytest.skip(f"No tables found in {test_schema}")
+        pytest.skip(f"No models found in {test_schema}")
     
-    # Test 3: Describe a table from spellbook
+    # Test 3: Describe a model from spellbook
     test_table = tables[0]
     print(f"\n📋 Describing {test_schema}.{test_table}...")
-    result = server._dune_describe_table_impl(schema=test_schema, table=test_table)
+    result = server._spellbook_describe_model_impl(schema=test_schema, table=test_table)
     
     assert "columns" in result
     assert "table" in result
@@ -171,7 +168,7 @@ def test_spellbook_discovery_live():
     print(f"   Table: {result.get('table')}")
     print(f"   Columns ({len(columns)}): {[c['name'] for c in columns[:5]]}...")
     
-    assert len(columns) > 0, "Table should have columns"
+    assert len(columns) > 0, "Model should have columns"
     assert result["table"] == f"{test_schema}.{test_table}"
 
 
