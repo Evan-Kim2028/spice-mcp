@@ -16,8 +16,8 @@ from ..adapters.dune.client import DuneAdapter
 
 logger = logging.getLogger(__name__)
 
-# Cache entry expires after 24 hours
-CACHE_TTL_SECONDS = 86400
+# Cache entry expires after 1 week (604800 seconds)
+CACHE_TTL_SECONDS = 604800
 
 
 class VerificationService:
@@ -78,14 +78,12 @@ class VerificationService:
                     results[fqn] = exists
                     self._cache_result(fqn, exists)
                 except Exception as e:
+                    # Do not hard-cache transient failures as negative results.
+                    # Leave the table unverified so callers can choose to keep it.
                     logger.warning(
-                        f"Failed to verify {schema}.{table}: {e}. "
-                        "Treating as non-existent."
+                        f"Failed to verify {schema}.{table}: {e}. Skipping cache and leaving unverified."
                     )
-                    fqn = f"{schema}.{table}"
-                    results[fqn] = False
-                    # Cache negative result to avoid repeated failures
-                    self._cache_result(fqn, False)
+                    # Intentionally omit from results and cache on failure
 
         return results
 
@@ -185,4 +183,3 @@ class VerificationService:
         self._cache = {}
         if self.cache_path.exists():
             self.cache_path.unlink()
-

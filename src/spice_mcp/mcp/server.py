@@ -444,17 +444,28 @@ def _unified_discover_impl(
         if spellbook_tables:
             # Verify tables exist (uses cache, queries Dune only if needed)
             verification_results = VERIFICATION_SERVICE.verify_tables_batch(spellbook_tables)
-            
-            # Filter: only return tables that exist in Dune
+
+            # Filter: drop only tables explicitly verified as False.
+            # Keep tables when verification is True or inconclusive (missing).
             verified_tables = []
             for t in out["tables"]:
                 if t.get("source") != "spellbook":
                     # Keep Dune tables as-is
                     verified_tables.append(t)
-                elif t.get("dune_table") and verification_results.get(t["dune_table"], False):
-                    # Spellbook table verified to exist
-                    t["verified"] = True
+                    continue
+                dune_fqn = t.get("dune_table")
+                if not dune_fqn:
+                    # If we couldn't resolve dune_table, keep it (conservative)
                     verified_tables.append(t)
+                    continue
+                vr = verification_results.get(dune_fqn)
+                if vr is False:
+                    # Explicitly known to be non-existent -> drop
+                    continue
+                if vr is True:
+                    t["verified"] = True
+                # If vr is None/missing (inconclusive), keep without setting verified
+                verified_tables.append(t)
             
             out["tables"] = verified_tables
             
