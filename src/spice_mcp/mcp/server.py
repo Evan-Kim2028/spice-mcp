@@ -347,7 +347,7 @@ def _unified_discover_impl(
     schema: str | None = None,
     limit: int = 50,
     source: Literal["dune", "spellbook", "both"] = "both",
-    include_columns: bool = True,
+    include_columns: bool = False,
 ) -> dict[str, Any]:
     """
     Unified discovery implementation that can search Dune API, Spellbook repo, or both.
@@ -614,7 +614,7 @@ def _spellbook_find_models_impl(
     keyword: str | list[str] | None = None,
     schema: str | None = None,
     limit: int = 50,
-    include_columns: bool = True,
+    include_columns: bool = False,
 ) -> dict[str, Any]:
     """
     Implementation for spellbook model discovery.
