@@ -69,7 +69,7 @@ def test_execute_query_tool_raw_format(tmp_path):
 
     tool = ExecuteQueryTool(cfg, svc, hist)
 
-    out = asyncio_run(tool.execute(query="SELECT 1", limit=2, format="raw"))
+    out = tool.execute(query="SELECT 1", limit=2, format="raw")
 
     assert out["type"] == "raw"
     assert out["data"] == [{"a": 1, "b": "x"}, {"a": 2, "b": "y"}]
@@ -84,7 +84,7 @@ def test_execute_query_tool_with_disabled_history():
 
     tool = ExecuteQueryTool(cfg, svc, hist)
 
-    out = asyncio_run(tool.execute(query="SELECT 1"))
+    out = tool.execute(query="SELECT 1")
 
     assert out["type"] == "preview"
     assert svc.calls[-1]["return_raw"] is False
@@ -98,7 +98,7 @@ def test_execute_query_tool_timeout_error(tmp_path):
 
     tool = ExecuteQueryTool(cfg, svc, hist)
 
-    out = asyncio_run(tool.execute(query="SELECT 1"))
+    out = tool.execute(query="SELECT 1")
 
     assert out["ok"] is False
     assert out["error"]["code"] == "QUERY_TIMEOUT"
@@ -112,7 +112,7 @@ def test_execute_query_tool_rate_limit(tmp_path):
 
     tool = ExecuteQueryTool(cfg, svc, hist)
 
-    out = asyncio_run(tool.execute(query="SELECT 1"))
+    out = tool.execute(query="SELECT 1")
 
     assert out["ok"] is False
     assert out["error"]["code"] == "RATE_LIMIT"

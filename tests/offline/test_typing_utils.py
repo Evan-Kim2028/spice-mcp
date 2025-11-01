@@ -28,12 +28,10 @@ def test_resolve_raw_sql_template_id_from_env():
 def test_resolve_raw_sql_template_id_invalid_env():
     """Test that the function handles invalid environment variable values gracefully."""
     with patch.dict(os.environ, {"SPICE_RAW_SQL_QUERY_ID": "invalid_number"}):
-        # This should raise a ValueError when trying to convert to int
-        try:
-            resolve_raw_sql_template_id()
-            assert False, "Expected ValueError for invalid number"
-        except ValueError:
-            pass  # Expected
+        # Function should gracefully fallback to default when conversion fails
+        result = resolve_raw_sql_template_id()
+        assert result == 4060379  # Should fallback to default
+        assert isinstance(result, int)
 
 
 def test_resolve_raw_sql_template_id_zero_env():

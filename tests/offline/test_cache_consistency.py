@@ -124,7 +124,7 @@ def test_stale_cache_detection(tmp_path):
     assert old_path != new_path
 
 
-def test_cache_missing_handles_gracefully(tmp_path):
+def test_cache_missing_handles_gracefully(tmp_path, monkeypatch):
     """Test that missing cache is handled gracefully."""
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir()
@@ -152,6 +152,11 @@ def test_cache_missing_handles_gracefully(tmp_path):
         "cache_dir": str(cache_dir),
         "include_execution": False,
     }
+    
+    # Mock get_latest_execution to return None (simulating no execution found)
+    # This avoids making actual HTTP requests with invalid API keys
+    from spice_mcp.adapters.dune import extract as extract_module
+    monkeypatch.setattr(extract_module, "get_latest_execution", lambda *args, **kwargs: None)
     
     # Try to load from cache when it doesn't exist
     result, execution = cache_module.load_from_cache(execute_kwargs, result_kwargs, output_kwargs)
