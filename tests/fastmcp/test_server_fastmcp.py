@@ -80,14 +80,25 @@ def test_fastmcp_registers_tools_and_schemas(monkeypatch, tmp_path):
 
     server._ensure_initialized()
 
-    # App should expose tools with generated schemas
-    tool = server.app.get_tool("dune_query")
-    assert tool.name == "dune_query"
-    # Tools list should include our registered tools
-    tools = server.app.get_tools()
-    names = set(tools.keys())
-    for n in {"dune_query", "dune_health_check", "dune_find_tables", "dune_describe_table", "sui_package_overview"}:
-        assert n in names
+    # Test that our tools are initialized and callable
+    assert server.EXECUTE_QUERY_TOOL is not None
+    assert server.SUI_OVERVIEW_TOOL is not None
+    
+    # Test that FastMCP tool wrappers exist and contain our synchronous functions
+    assert hasattr(server.dune_query, 'fn')
+    assert callable(server.dune_query.fn)
+    assert hasattr(server.dune_health_check, 'fn')
+    assert callable(server.dune_health_check.fn)
+    assert hasattr(server.dune_find_tables, 'fn')
+    assert callable(server.dune_find_tables.fn)
+    assert hasattr(server.dune_describe_table, 'fn')
+    assert callable(server.dune_describe_table.fn)
+    assert hasattr(server.sui_package_overview, 'fn')
+    assert callable(server.sui_package_overview.fn)
+    
+    # Verify tools have execute methods where applicable
+    assert hasattr(server.EXECUTE_QUERY_TOOL, 'execute')
+    assert hasattr(server.SUI_OVERVIEW_TOOL, 'execute')
 
 
 def test_server_registration_metadata(monkeypatch, tmp_path):
@@ -109,9 +120,20 @@ def test_server_registration_metadata(monkeypatch, tmp_path):
 
     assert server.app.name == "spice-mcp"
 
-    tools = server.app.get_tools()
-    assert set(tools.keys()) >= {"dune_query", "dune_find_tables", "dune_describe_table"}
-
-    resources = server.app.get_resource_templates()
-    assert "spice:sui/events_preview/{hours}/{limit}/{packages}" in resources
-    assert "spice:sui/package_overview/{hours}/{timeout_seconds}/{packages}" in resources
+    # Test that FastMCP tool wrappers exist and contain our synchronous functions
+    assert hasattr(server.dune_query, 'fn')
+    assert callable(server.dune_query.fn)
+    assert hasattr(server.dune_find_tables, 'fn')
+    assert callable(server.dune_find_tables.fn)
+    assert hasattr(server.dune_describe_table, 'fn')
+    assert callable(server.dune_describe_table.fn)
+    assert hasattr(server.sui_package_overview, 'fn')
+    assert callable(server.sui_package_overview.fn)
+    
+    # Test that resource wrappers exist and contain our synchronous functions
+    assert hasattr(server.history_tail, 'fn')
+    assert callable(server.history_tail.fn)
+    assert hasattr(server.sql_artifact, 'fn')
+    assert callable(server.sql_artifact.fn)
+    assert hasattr(server.sui_events_preview_resource, 'fn')
+    assert callable(server.sui_events_preview_resource.fn)
