@@ -2,7 +2,6 @@
 """
 Test script to verify MCP tool functionality.
 """
-import asyncio
 import os
 import sys
 from pathlib import Path
@@ -17,7 +16,7 @@ from spice_mcp.service_layer.query_service import QueryService
 from spice_mcp.logging.query_history import QueryHistory
 
 
-async def test_mcp_tools():
+def test_mcp_tools():
     """Test MCP tool interface."""
     print("🔧 Testing MCP Tools functionality...")
     
@@ -54,7 +53,7 @@ async def test_mcp_tools():
     # Test 1: Simple query execution through tool interface
     print("\n📊 Test 1: Execute query through MCP tool")
     try:
-        result = await execute_tool.execute(
+        result = execute_tool.execute(
             query="SELECT 1 as test_col, 'mcp_test' as message",
             performance="medium"
         )
@@ -77,7 +76,7 @@ async def test_mcp_tools():
     # Test 2: Query with parameters through tool
     print("\n🔧 Test 2: Execute parameterized query through MCP tool")
     try:
-        result = await execute_tool.execute(
+        result = execute_tool.execute(
             query="SELECT '{{test_param}}' as param_value, 42 as number",
             parameters={"test_param": "hello_world"},
             performance="medium"
@@ -130,5 +129,5 @@ if __name__ == "__main__":
                     key, value = line.split("=", 1)
                     os.environ[key] = value
     
-    success = asyncio.run(test_mcp_tools())
+    success = test_mcp_tools()
     sys.exit(0 if success else 1)

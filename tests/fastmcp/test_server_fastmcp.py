@@ -3,8 +3,7 @@ from typing import Any
 import pytest
 
 
-@pytest.mark.asyncio
-async def test_fastmcp_startup_initializes_tools(monkeypatch, tmp_path):
+def test_fastmcp_startup_initializes_tools(monkeypatch, tmp_path):
     # Arrange: ensure env for Config/QueryHistory and isolate logs to tmp
     monkeypatch.setenv("DUNE_API_KEY", "test-key")
     monkeypatch.setenv("SPICE_QUERY_HISTORY", str(tmp_path / "queries.jsonl"))
@@ -20,8 +19,7 @@ async def test_fastmcp_startup_initializes_tools(monkeypatch, tmp_path):
     assert server.SUI_OVERVIEW_TOOL is not None
 
 
-@pytest.mark.asyncio
-async def test_health_tool_executes(monkeypatch, tmp_path):
+def test_health_tool_executes(monkeypatch, tmp_path):
     monkeypatch.setenv("DUNE_API_KEY", "test-key")
     monkeypatch.setenv("SPICE_QUERY_HISTORY", str(tmp_path / "queries.jsonl"))
 
@@ -74,8 +72,7 @@ def test_dune_query_delegates_and_returns_preview(monkeypatch, tmp_path):
     assert res["execution_id"] == "test-exec"
 
 
-@pytest.mark.asyncio
-async def test_fastmcp_registers_tools_and_schemas(monkeypatch, tmp_path):
+def test_fastmcp_registers_tools_and_schemas(monkeypatch, tmp_path):
     monkeypatch.setenv("DUNE_API_KEY", "test-key")
     monkeypatch.setenv("SPICE_QUERY_HISTORY", str(tmp_path / "queries.jsonl"))
 
@@ -84,17 +81,16 @@ async def test_fastmcp_registers_tools_and_schemas(monkeypatch, tmp_path):
     server._ensure_initialized()
 
     # App should expose tools with generated schemas
-    tool = await server.app.get_tool("dune_query")
+    tool = server.app.get_tool("dune_query")
     assert tool.name == "dune_query"
     # Tools list should include our registered tools
-    tools = await server.app.get_tools()
+    tools = server.app.get_tools()
     names = set(tools.keys())
     for n in {"dune_query", "dune_health_check", "dune_find_tables", "dune_describe_table", "sui_package_overview"}:
         assert n in names
 
 
-@pytest.mark.asyncio
-async def test_server_registration_metadata(monkeypatch, tmp_path):
+def test_server_registration_metadata(monkeypatch, tmp_path):
     monkeypatch.setenv("DUNE_API_KEY", "test-key")
     monkeypatch.setenv("SPICE_QUERY_HISTORY", str(tmp_path / "history.jsonl"))
 
@@ -113,9 +109,9 @@ async def test_server_registration_metadata(monkeypatch, tmp_path):
 
     assert server.app.name == "spice-mcp"
 
-    tools = await server.app.get_tools()
+    tools = server.app.get_tools()
     assert set(tools.keys()) >= {"dune_query", "dune_find_tables", "dune_describe_table"}
 
-    resources = await server.app.get_resource_templates()
+    resources = server.app.get_resource_templates()
     assert "spice:sui/events_preview/{hours}/{limit}/{packages}" in resources
     assert "spice:sui/package_overview/{hours}/{timeout_seconds}/{packages}" in resources

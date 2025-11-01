@@ -52,7 +52,7 @@ def test_execute_query_tool_happy_path(tmp_path):
 
     tool = ExecuteQueryTool(cfg, svc, hist)
 
-    out = asyncio_run(tool.execute(query="SELECT 1", limit=2, format="preview"))
+    out = tool.execute(query="SELECT 1", limit=2, format="preview")
 
     assert out["type"] == "preview"
     assert out["rowcount"] == 2
@@ -118,13 +118,3 @@ def test_execute_query_tool_rate_limit(tmp_path):
     assert out["error"]["code"] == "RATE_LIMIT"
 
 
-def asyncio_run(coro):
-    import asyncio
-
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-    if loop and loop.is_running():
-        raise RuntimeError("asyncio_run should not be called from a running event loop")
-    return asyncio.run(coro)
