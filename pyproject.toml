@@ -1,6 +1,6 @@
 [project]
 name = "spice-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP server for Dune Analytics data access"
 authors = [
     { name = "Evan-Kim2028", email = "ekcopersonal@gmail.com" }
