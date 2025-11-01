@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import time
 from typing import TYPE_CHECKING, overload
+import os
 
 from ..http_client import HttpClient
 from . import cache as _cache
@@ -31,6 +32,10 @@ from .typing_utils import resolve_raw_sql_template_id
 # Keep local helper implementations for compatibility with tests
 
 ADAPTER_VERSION = "spice-mcp-adapter"
+
+# Runtime-configurable HTTP timeouts (helps avoid host-level timeouts)
+_GET_TIMEOUT: float = float(os.getenv("SPICE_DUNE_GET_TIMEOUT", os.getenv("SPICE_HTTP_TIMEOUT", "30")))
+_POST_TIMEOUT: float = float(os.getenv("SPICE_DUNE_POST_TIMEOUT", os.getenv("SPICE_HTTP_TIMEOUT", "30")))
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -749,7 +754,7 @@ def _execute(
         print('executing query, query_id = ' + str(query_id))
 
     # perform request
-    response = _transport_post(url, headers=headers, json=data, timeout=15.0)
+    response = _transport_post(url, headers=headers, json=data, timeout=_POST_TIMEOUT)
     result: Mapping[str, Any] = response.json()
 
     # check for errors
@@ -786,7 +791,7 @@ async def _async_execute(
         print('executing query, query_id = ' + str(query_id))
 
     # perform request
-    timeout = aiohttp.ClientTimeout(total=30)
+    timeout = aiohttp.ClientTimeout(total=_POST_TIMEOUT)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         async with session.post(url, headers=headers, json=data) as response:
             result: Mapping[str, Any] = await response.json()
@@ -862,12 +867,12 @@ def _get_results(
     def _get_with_retries(u: str):
         client = current_http_client()
         if client is not None:
-            return client.request("GET", u, headers=headers, timeout=30.0)
+            return client.request("GET", u, headers=headers, timeout=_GET_TIMEOUT)
 
         attempts = 0
         backoff = 0.5
         while True:
-            resp = _transport_get(u, headers=headers, timeout=30.0)
+            resp = _transport_get(u, headers=headers, timeout=_GET_TIMEOUT)
             if resp.status_code in (429, 502):
                 attempts += 1
                 if attempts >= 3:
@@ -963,7 +968,7 @@ async def _async_get_results(
             print('getting results, execution_id = ' + str(execution['execution_id']))
 
     # perform request
-    timeout = aiohttp.ClientTimeout(total=30)
+    timeout = aiohttp.ClientTimeout(total=_GET_TIMEOUT)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         # GET with simple retry/backoff for 429/502
         attempts = 0
@@ -1169,7 +1174,7 @@ def _poll_execution(
             )
 
         # poll
-        response = _http_get(url, headers=headers, timeout=15.0)
+        response = _http_get(url, headers=headers, timeout=_GET_TIMEOUT)
         result = response.json()
         if (
             'is_execution_finished' not in result
@@ -1243,7 +1248,7 @@ async def _async_poll_execution(
     t_start = time.time()
 
     # poll until completion
-    timeout = aiohttp.ClientTimeout(total=30)
+    timeout = aiohttp.ClientTimeout(total=_GET_TIMEOUT)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         sleep_amount = poll_interval
         while True:
