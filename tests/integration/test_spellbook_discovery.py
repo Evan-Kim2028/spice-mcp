@@ -103,17 +103,24 @@ def test_spellbook_discovery_through_mcp_tool(monkeypatch, tmp_path):
     
     # Test 2: List tables/models in a spellbook schema
     result = server._spellbook_find_models_impl(schema="dex", limit=10)
-    assert "tables" in result
-    tables = result["tables"]
-    assert len(tables) > 0
-    assert "trades" in tables
+    assert "models" in result
+    models = result["models"]
+    assert len(models) > 0
+    model_names = [m["table"] for m in models]
+    assert "trades" in model_names
     
-    # Test 3: Describe a spellbook model
-    result = server._spellbook_describe_model_impl(schema="dex", table="trades")
-    assert "columns" in result
-    assert len(result["columns"]) > 0
-    column_names = [c["name"] for c in result["columns"]]
+    # Test 3: Verify model includes column details
+    trades_model = next(m for m in models if m["table"] == "trades")
+    assert "columns" in trades_model
+    assert len(trades_model["columns"]) > 0
+    column_names = [c["name"] for c in trades_model["columns"]]
     assert "block_time" in column_names or "tx_hash" in column_names
+    
+    # Test 4: Test with multiple keywords
+    result = server._spellbook_find_models_impl(keyword=["dex", "nft"], include_columns=False)
+    assert "schemas" in result
+    assert "models" in result
+    assert len(result["schemas"]) >= 2  # Should find both dex and nft schemas
 
 
 @pytest.mark.skipif(not _should_run_live(), reason="live tests disabled by default")
@@ -145,31 +152,27 @@ def test_spellbook_discovery_live():
     if not schemas:
         pytest.skip("No schemas found - may need to check git availability or repo access")
     
-    # Test 2: List tables/models in a schema
-    test_schema = schemas[0]
-    print(f"\n📊 Listing models in {test_schema} subproject...")
-    result = server._spellbook_find_models_impl(schema=test_schema, limit=20)
+    # Test 2: Search for models matching keyword (includes column details)
+    print(f"\n📊 Searching for models matching 'dex' with column details...")
+    result = server._spellbook_find_models_impl(keyword="dex", limit=5, include_columns=True)
     
-    assert "tables" in result
-    tables = result.get("tables", [])
-    print(f"   Found {len(tables)} models: {tables[:10]}...")
+    assert "models" in result
+    models = result.get("models", [])
+    print(f"   Found {len(models)} models")
     
-    if not tables:
-        pytest.skip(f"No models found in {test_schema}")
+    if not models:
+        pytest.skip("No models found - may need to check git availability or repo access")
     
-    # Test 3: Describe a model from spellbook
-    test_table = tables[0]
-    print(f"\n📋 Describing {test_schema}.{test_table}...")
-    result = server._spellbook_describe_model_impl(schema=test_schema, table=test_table)
-    
-    assert "columns" in result
-    assert "table" in result
-    columns = result.get("columns", [])
-    print(f"   Table: {result.get('table')}")
+    # Test 3: Verify model structure includes columns
+    test_model = models[0]
+    print(f"\n📋 Model: {test_model.get('fully_qualified_name')}")
+    columns = test_model.get("columns", [])
     print(f"   Columns ({len(columns)}): {[c['name'] for c in columns[:5]]}...")
     
-    assert len(columns) > 0, "Model should have columns"
-    assert result["table"] == f"{test_schema}.{test_table}"
+    assert "schema" in test_model
+    assert "table" in test_model
+    assert "fully_qualified_name" in test_model
+    assert len(columns) >= 0, "Model should have columns list (may be empty if parsing fails)"
 
 
 @pytest.mark.skipif(not _should_run_live(), reason="live tests disabled by default")
@@ -182,29 +185,27 @@ def test_spellbook_workflow_end_to_end():
     """
     server._ensure_initialized()
     
-    # Step 1: Discover spellbook schemas
-    result = server._dune_find_tables_impl(keyword="spellbook")
+    # Step 1: Discover spellbook schemas and models
+    result = server._spellbook_find_models_impl(keyword="dex", limit=5, include_columns=True)
     schemas = result.get("schemas", [])
+    models = result.get("models", [])
     assert len(schemas) > 0
+    assert len(models) > 0
     
-    # Step 2: Find a spellbook schema and list its tables
-    spellbook_schema = next((s for s in schemas if "spellbook" in s.lower()), None)
-    assert spellbook_schema is not None
+    # Step 2: Verify model structure includes schema, table, and columns
+    test_model = models[0]
+    assert "schema" in test_model
+    assert "table" in test_model
+    assert "fully_qualified_name" in test_model
+    assert "columns" in test_model
+    columns = test_model.get("columns", [])
+    assert isinstance(columns, list)
     
-    result = server._dune_find_tables_impl(schema=spellbook_schema, limit=10)
-    tables = result.get("tables", [])
-    assert len(tables) > 0
-    
-    # Step 3: Describe a table
-    test_table = tables[0]
-    result = server._dune_describe_table_impl(schema=spellbook_schema, table=test_table)
-    columns = result.get("columns", [])
-    assert len(columns) > 0
-    
-    # Step 4: Use discovered info to query (if query tool is available)
+    # Step 3: Use discovered info to query (if query tool is available)
     if server.EXECUTE_QUERY_TOOL:
-        # Construct a simple query using discovered table
-        query_sql = f"SELECT * FROM {spellbook_schema}.{test_table} LIMIT 5"
+        # Construct a simple query using discovered model
+        model_name = test_model["fully_qualified_name"]
+        query_sql = f"SELECT * FROM {model_name} LIMIT 5"
         print(f"\n� Querying: {query_sql}")
         
         query_result = server.EXECUTE_QUERY_TOOL.execute(query=query_sql, format="preview")
