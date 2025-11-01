@@ -171,16 +171,17 @@ def test_discovery_to_describe_to_query_workflow(monkeypatch, tmp_path):
     server.EXECUTE_QUERY_TOOL.query_service = fake_query
 
     # Step 1: Discover schemas
-    schemas_result = server._dune_find_tables_impl(keyword="sui")
+    schemas_result = server._unified_discover_impl(keyword="sui", source="dune")
     assert "schemas" in schemas_result
     assert len(schemas_result["schemas"]) > 0
     assert "sui_base" in schemas_result["schemas"]
 
     # Step 2: List tables in discovered schema
-    tables_result = server._dune_find_tables_impl(schema="sui_base")
+    tables_result = server._unified_discover_impl(schema="sui_base", source="dune")
     assert "tables" in tables_result
     assert len(tables_result["tables"]) > 0
-    assert "events" in tables_result["tables"]
+    table_names = [t["table"] for t in tables_result["tables"]]
+    assert "events" in table_names
 
     # Step 3: Describe table structure
     describe_result = server._dune_describe_table_impl(schema="sui_base", table="events")
@@ -275,11 +276,11 @@ def test_multi_tool_interaction_sequence(monkeypatch, tmp_path):
     assert "status" in health
 
     # 2. Find schemas
-    schemas = server._dune_find_tables_impl(keyword="eth")
+    schemas = server._unified_discover_impl(keyword="eth", source="dune")
     assert len(schemas.get("schemas", [])) > 0
 
     # 3. List tables
-    tables = server._dune_find_tables_impl(schema="ethereum")
+    tables = server._unified_discover_impl(schema="ethereum", source="dune")
     assert len(tables.get("tables", [])) > 0
 
     # 4. Describe table

@@ -22,14 +22,15 @@ def _should_run_live():
 
 
 @pytest.mark.mcp
-def test_spellbook_discovery_through_mcp_tool(monkeypatch, tmp_path):
+def test_spellbook_discovery_through_dune_discover(monkeypatch, tmp_path):
     """
-    Test spellbook discovery through the actual MCP tool interface.
+    Test spellbook discovery through dune_discover tool.
     
     This verifies the full stack:
-    1. MCP tool spellbook_find_models
-    2. SpellbookExplorer.find_schemas() which parses GitHub repo
-    3. Returns schema/subproject names from Spellbook dbt models
+    1. dune_discover with source="spellbook"
+    2. Uses _spellbook_find_models_impl internally
+    3. SpellbookExplorer.find_schemas() which parses GitHub repo
+    4. Returns schema/subproject names from Spellbook dbt models
     """
     monkeypatch.setenv("DUNE_API_KEY", "test-key")
     monkeypatch.setenv("SPICE_QUERY_HISTORY", str(tmp_path / "history.jsonl"))
@@ -37,9 +38,9 @@ def test_spellbook_discovery_through_mcp_tool(monkeypatch, tmp_path):
     # Initialize server to set up services
     server._ensure_initialized()
     
-    # Verify the tool function exists (via FastMCP wrapper)
-    assert hasattr(server.spellbook_find_models, 'fn')
-    assert callable(server.spellbook_find_models.fn)
+    # Verify the dune_discover tool exists (via FastMCP wrapper)
+    assert hasattr(server.dune_discover, 'fn')
+    assert callable(server.dune_discover.fn)
     
     # Test with a stub first to verify the tool interface works
     from spice_mcp.core.models import SchemaMatch, TableSummary, TableColumn, TableDescription
@@ -90,36 +91,81 @@ def test_spellbook_discovery_through_mcp_tool(monkeypatch, tmp_path):
                     ],
                 )
             raise ValueError(f"Table {schema}.{table} not found in Spellbook")
+        
+        def _load_models(self):
+            """Return mock models cache matching real SpellbookExplorer structure."""
+            return {
+                "dex": [
+                    {
+                        "name": "trades",
+                        "schema": "dex",
+                        "dune_schema": "dex",
+                        "dune_alias": "trades",
+                        "dune_table": "dex.trades",
+                    },
+                    {
+                        "name": "pools",
+                        "schema": "dex",
+                        "dune_schema": "dex",
+                        "dune_alias": "pools",
+                        "dune_table": "dex.pools",
+                    },
+                ],
+                "nft": [
+                    {
+                        "name": "transfers",
+                        "schema": "nft",
+                        "dune_schema": "nft",
+                        "dune_alias": "transfers",
+                        "dune_table": "nft.transfers",
+                    },
+                ],
+            }
     
     # Replace spellbook explorer with stub
     server.SPELLBOOK_EXPLORER = StubSpellbookExplorer()
     
-    # Test 1: Find spellbook schemas/subprojects via MCP tool
-    result = server._spellbook_find_models_impl(keyword="dex")
+    # Create a stub verification service that always returns True (skip verification for stub test)
+    from spice_mcp.service_layer.verification_service import VerificationService
+    from unittest.mock import MagicMock
+    from pathlib import Path
+    import tempfile
+    
+    stub_adapter = MagicMock()
+    stub_verification = VerificationService(
+        cache_path=Path(tempfile.gettempdir()) / "test_verification_cache.json",
+        dune_adapter=stub_adapter,
+    )
+    # Mock verify_tables_batch to always return True for stub tables
+    stub_verification.verify_tables_batch = lambda tables: {f"{s}.{t}": True for s, t in tables}
+    server.VERIFICATION_SERVICE = stub_verification
+    
+    # Test 1: Find spellbook schemas/subprojects via dune_discover
+    result = server._unified_discover_impl(keyword="dex", source="spellbook")
     assert "schemas" in result
     schemas = result["schemas"]
     assert len(schemas) > 0
     assert "dex" in schemas
     
-    # Test 2: List tables/models in a spellbook schema
-    result = server._spellbook_find_models_impl(schema="dex", limit=10)
-    assert "models" in result
-    models = result["models"]
-    assert len(models) > 0
-    model_names = [m["table"] for m in models]
-    assert "trades" in model_names
+    # Test 2: List tables/models in a spellbook schema via dune_discover
+    result = server._unified_discover_impl(schema="dex", source="spellbook", limit=10)
+    assert "tables" in result
+    tables = result["tables"]
+    assert len(tables) > 0
+    table_names = [t["table"] for t in tables]
+    assert "trades" in table_names
     
-    # Test 3: Verify model includes column details
-    trades_model = next(m for m in models if m["table"] == "trades")
-    assert "columns" in trades_model
-    assert len(trades_model["columns"]) > 0
-    column_names = [c["name"] for c in trades_model["columns"]]
+    # Test 3: Verify table includes column details
+    trades_table = next(t for t in tables if t["table"] == "trades")
+    assert "columns" in trades_table
+    assert len(trades_table["columns"]) > 0
+    column_names = [c["name"] for c in trades_table["columns"]]
     assert "block_time" in column_names or "tx_hash" in column_names
     
-    # Test 4: Test with multiple keywords
-    result = server._spellbook_find_models_impl(keyword=["dex", "nft"], include_columns=False)
+    # Test 4: Test with multiple keywords via dune_discover
+    result = server._unified_discover_impl(keyword=["dex", "nft"], source="spellbook", include_columns=False)
     assert "schemas" in result
-    assert "models" in result
+    assert "tables" in result
     assert len(result["schemas"]) >= 2  # Should find both dex and nft schemas
 
 
@@ -141,9 +187,23 @@ def test_spellbook_discovery_live():
     """
     server._ensure_initialized()
     
-    # Test 1: Find spellbook schemas/subprojects (parses GitHub repo)
+    # Create stub verification service for live tests
+    from spice_mcp.service_layer.verification_service import VerificationService
+    from unittest.mock import MagicMock
+    from pathlib import Path
+    import tempfile
+    
+    stub_adapter = MagicMock()
+    stub_verification = VerificationService(
+        cache_path=Path(tempfile.gettempdir()) / "test_verification_cache.json",
+        dune_adapter=stub_adapter,
+    )
+    stub_verification.verify_tables_batch = lambda tables: {f"{s}.{t}": True for s, t in tables}
+    server.VERIFICATION_SERVICE = stub_verification
+    
+    # Test 1: Find spellbook schemas/subprojects via dune_discover (parses GitHub repo)
     print("\n🔍 Searching Spellbook GitHub repo for schemas...")
-    result = server._spellbook_find_models_impl(keyword="dex")
+    result = server._unified_discover_impl(keyword="dex", source="spellbook")
     
     assert "schemas" in result, "Result should contain 'schemas' key"
     schemas = result.get("schemas", [])
@@ -152,27 +212,27 @@ def test_spellbook_discovery_live():
     if not schemas:
         pytest.skip("No schemas found - may need to check git availability or repo access")
     
-    # Test 2: Search for models matching keyword (includes column details)
+    # Test 2: Search for models matching keyword (includes column details) via dune_discover
     print(f"\n📊 Searching for models matching 'dex' with column details...")
-    result = server._spellbook_find_models_impl(keyword="dex", limit=5, include_columns=True)
+    result = server._unified_discover_impl(keyword="dex", source="spellbook", limit=5, include_columns=True)
     
-    assert "models" in result
-    models = result.get("models", [])
-    print(f"   Found {len(models)} models")
+    assert "tables" in result
+    tables = result.get("tables", [])
+    print(f"   Found {len(tables)} tables")
     
-    if not models:
-        pytest.skip("No models found - may need to check git availability or repo access")
+    if not tables:
+        pytest.skip("No tables found - may need to check git availability or repo access")
     
-    # Test 3: Verify model structure includes columns
-    test_model = models[0]
-    print(f"\n📋 Model: {test_model.get('fully_qualified_name')}")
-    columns = test_model.get("columns", [])
+    # Test 3: Verify table structure includes columns
+    test_table = tables[0]
+    print(f"\n📋 Table: {test_table.get('fully_qualified_name')}")
+    columns = test_table.get("columns", [])
     print(f"   Columns ({len(columns)}): {[c['name'] for c in columns[:5]]}...")
     
-    assert "schema" in test_model
-    assert "table" in test_model
-    assert "fully_qualified_name" in test_model
-    assert len(columns) >= 0, "Model should have columns list (may be empty if parsing fails)"
+    assert "schema" in test_table
+    assert "table" in test_table
+    assert "fully_qualified_name" in test_table
+    assert len(columns) >= 0, "Table should have columns list (may be empty if parsing fails)"
 
 
 @pytest.mark.skipif(not _should_run_live(), reason="live tests disabled by default")
@@ -185,28 +245,43 @@ def test_spellbook_workflow_end_to_end():
     """
     server._ensure_initialized()
     
-    # Step 1: Discover spellbook schemas and models
-    result = server._spellbook_find_models_impl(keyword="dex", limit=5, include_columns=True)
-    schemas = result.get("schemas", [])
-    models = result.get("models", [])
-    assert len(schemas) > 0
-    assert len(models) > 0
+    # Create stub verification service for live tests
+    from spice_mcp.service_layer.verification_service import VerificationService
+    from unittest.mock import MagicMock
+    from pathlib import Path
+    import tempfile
     
-    # Step 2: Verify model structure includes schema, table, and columns
-    test_model = models[0]
-    assert "schema" in test_model
-    assert "table" in test_model
-    assert "fully_qualified_name" in test_model
-    assert "columns" in test_model
-    columns = test_model.get("columns", [])
+    stub_adapter = MagicMock()
+    stub_verification = VerificationService(
+        cache_path=Path(tempfile.gettempdir()) / "test_verification_cache.json",
+        dune_adapter=stub_adapter,
+    )
+    stub_verification.verify_tables_batch = lambda tables: {f"{s}.{t}": True for s, t in tables}
+    server.VERIFICATION_SERVICE = stub_verification
+    
+    # Step 1: Discover spellbook schemas and tables via dune_discover
+    result = server._unified_discover_impl(keyword="dex", source="spellbook", limit=5, include_columns=True)
+    schemas = result.get("schemas", [])
+    tables = result.get("tables", [])
+    assert len(schemas) > 0
+    assert len(tables) > 0
+    
+    # Step 2: Verify table structure includes schema, table, and columns
+    test_table = tables[0]
+    assert "schema" in test_table
+    assert "table" in test_table
+    assert "fully_qualified_name" in test_table
+    assert "columns" in test_table
+    columns = test_table.get("columns", [])
     assert isinstance(columns, list)
     
     # Step 3: Use discovered info to query (if query tool is available)
     if server.EXECUTE_QUERY_TOOL:
-        # Construct a simple query using discovered model
-        model_name = test_model["fully_qualified_name"]
-        query_sql = f"SELECT * FROM {model_name} LIMIT 5"
-        print(f"\n� Querying: {query_sql}")
+        # Construct a simple query using discovered table
+        # Note: For verified tables, use dune_table field if available
+        table_name = test_table.get("dune_table") or test_table["fully_qualified_name"]
+        query_sql = f"SELECT * FROM {table_name} LIMIT 5"
+        print(f"\n🔍 Querying: {query_sql}")
         
         query_result = server.EXECUTE_QUERY_TOOL.execute(query=query_sql, format="preview")
         assert query_result["type"] == "preview"
