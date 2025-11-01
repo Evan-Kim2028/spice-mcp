@@ -41,7 +41,7 @@ class Config:
     cache: CacheConfig = field(default_factory=CacheConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     http: HttpClientConfig = field(default_factory=HttpClientConfig)
-    max_concurrent_queries: int = 5
+    max_concurrent_queries: int = 5  # Note: Not currently enforced (kept for future use)
     default_timeout_seconds: int = 30
 
     @classmethod
