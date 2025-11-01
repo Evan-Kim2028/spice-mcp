@@ -496,7 +496,7 @@ def dune_discover(
     schema: str | None = None,
     limit: int = 50,
     source: Literal["dune", "spellbook", "both"] = "both",
-    include_columns: bool = True,
+    include_columns: bool = False,
 ) -> dict[str, Any]:
     """
     PRIMARY discovery tool for finding tables in Dune.
@@ -520,7 +520,9 @@ def dune_discover(
         limit: Maximum number of tables to return
         source: Where to search - "dune" (Dune API only), "spellbook" (GitHub repo only),
                 or "both" (default: searches both and merges results)
-        include_columns: Whether to include column details for Spellbook models (default: True)
+        include_columns: Whether to include column details (default: False).
+                        Note: Column info from Spellbook SQL is unreliable.
+                        Use dune_describe_table on the actual Dune table for accurate columns.
     
     Returns:
         Dictionary with:
@@ -534,9 +536,10 @@ def dune_discover(
           - dune_alias: Actual Dune table alias (for Spellbook models)
           - dune_table: Verified, queryable Dune table name (e.g., "sui_walrus.base_table")
           - verified: True (all returned tables are verified to exist)
-          - columns: Column details (for Spellbook models, if include_columns=True)
         - 'source': The source parameter used
         - 'message': Helpful message if no tables found
+        
+    Note: To get accurate column information, use dune_describe_table on the dune_table value.
     
     Examples:
         # Search both sources for walrus - returns verified tables only

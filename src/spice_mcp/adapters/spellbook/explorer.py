@@ -349,13 +349,17 @@ class SpellbookExplorer(CatalogExplorer):
             return {}
 
     def _parse_sql_columns(self, sql_file: Path) -> list[TableColumn]:
-        """Parse SQL file to extract column names from SELECT statements."""
+        """
+        Parse SQL file to extract column names from SELECT statements.
+        
+        Note: This is a best-effort heuristic and may not be perfect for complex SQL.
+        For accurate column information, use Dune's DESCRIBE TABLE or query the actual table.
+        """
         try:
             with open(sql_file, encoding="utf-8") as f:
                 sql = f.read()
             
-            # Look for SELECT ... FROM patterns
-            # Match: SELECT col1, col2, col3 FROM ...
+            # Look for SELECT ... FROM patterns (simple heuristic)
             select_match = re.search(
                 r"SELECT\s+(.+?)\s+FROM",
                 sql,
@@ -364,27 +368,20 @@ class SpellbookExplorer(CatalogExplorer):
             
             if select_match:
                 cols_str = select_match.group(1)
-                # Split by comma, but handle function calls and aliases
+                # Simple split - may not handle all nested cases perfectly
+                # This is OK since column info is optional and best-effort
                 cols = []
                 for col in cols_str.split(","):
                     col = col.strip()
-                    # Extract column name (handle aliases: col AS alias -> col)
-                    if " AS " in col.upper():
-                        col = col.split(" AS ", 1)[0].strip()
-                    elif " " in col and not col.startswith("("):
-                        # Might be alias without AS
-                        parts = col.split()
-                        col = parts[0].strip()
-                    
-                    # Clean up function calls: function(col) -> col
-                    col = re.sub(r"^\w+\((.+)\)", r"\1", col)
+                    # Basic cleanup - remove obvious SQL noise
+                    col = col.split()[-1] if col else ""
                     col = col.strip().strip('"').strip("'")
                     
-                    if col and col not in ["*", "DISTINCT"]:
+                    if col and col not in ["*", "DISTINCT", "FROM"]:
                         cols.append(
                             TableColumn(
                                 name=col,
-                                dune_type="VARCHAR",  # Default, can't infer from SQL
+                                dune_type="VARCHAR",
                                 polars_dtype="Utf8",
                             )
                         )
