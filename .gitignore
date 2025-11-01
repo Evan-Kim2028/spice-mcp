@@ -15,3 +15,9 @@ notes/*
 .pytest_cache/*
 tests/scripts/test_report.txt
 coverage*
+
+# Development tools and directories
+bin/
+.github/
+.factory/
+debug_api.py
