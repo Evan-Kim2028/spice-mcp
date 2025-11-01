@@ -76,3 +76,56 @@ def test_sui_package_overview_tool(monkeypatch):
     assert out["hours"] == 12
 
 
+def test_spellbook_schema_discovery(monkeypatch):
+    """Test discovery tools work with spellbook schema."""
+    monkeypatch.setenv("DUNE_API_KEY", "k")
+    
+    # Create a flexible stub for spellbook testing
+    class SpellbookStubDiscovery:
+        def find_schemas(self, keyword: str) -> list[str]:
+            if "spellbook" in keyword.lower():
+                return ["spellbook", "spellbook_ethereum"]
+            return []
+        
+        def list_tables(self, schema: str, limit: int | None = None):
+            if schema == "spellbook":
+                tables = ["erc20_transfers", "dex_trades", "nft_transfers"]
+                summaries = [TableSummary(schema="spellbook", table=t) for t in tables]
+                if limit is not None:
+                    return summaries[:limit]
+                return summaries
+            return []
+        
+        def describe_table(self, schema: str, table: str) -> TableDescription:
+            if schema == "spellbook" and table == "erc20_transfers":
+                return TableDescription(
+                    "spellbook.erc20_transfers",
+                    columns=[
+                        TableColumn(name="block_time", dune_type="TIMESTAMP", polars_dtype="Datetime"),
+                        TableColumn(name="token_address", dune_type="VARCHAR", polars_dtype="Utf8"),
+                        TableColumn(name="amount", dune_type="DECIMAL", polars_dtype="Float64"),
+                    ],
+                )
+            raise ValueError(f"Table {schema}.{table} not found")
+    
+    stub = SpellbookStubDiscovery()
+    monkeypatch.setattr(server, "_ensure_initialized", lambda: None)
+    server.DISCOVERY_SERVICE = stub  # type: ignore[assignment]
+    
+    # Test finding spellbook schemas
+    out = server._dune_find_tables_impl(keyword="spellbook")
+    assert out.get("schemas") == ["spellbook", "spellbook_ethereum"]
+    
+    # Test listing tables in spellbook schema
+    out = server._dune_find_tables_impl(schema="spellbook", limit=10)
+    assert out.get("tables") == ["erc20_transfers", "dex_trades", "nft_transfers"]
+    
+    # Test describing a spellbook table
+    out = server._dune_describe_table_impl(schema="spellbook", table="erc20_transfers")
+    assert out["table"] == "spellbook.erc20_transfers"
+    assert len(out["columns"]) == 3
+    assert out["columns"][0]["name"] == "block_time"
+    assert out["columns"][1]["name"] == "token_address"
+    assert out["columns"][2]["name"] == "amount"
+
+
