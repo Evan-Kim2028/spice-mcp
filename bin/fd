@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Wrapper to provide a consistent `fd` command across distros.
+# On Debian/Ubuntu the binary may be `fdfind`.
+set -euo pipefail
+
+if command -v fd >/dev/null 2>&1; then
+  exec fd "$@"
+elif command -v fdfind >/dev/null 2>&1; then
+  exec fdfind "$@"
+else
+  echo "fd (or fdfind) is not installed. Suggested installs:" >&2
+  echo "  macOS:   brew install fd" >&2
+  echo "  Ubuntu:  sudo apt install fd-find && sudo ln -s \$(command -v fdfind) /usr/local/bin/fd" >&2
+  echo "  Arch:    sudo pacman -S fd" >&2
+  echo "  Fedora:  sudo dnf install fd-find" >&2
+  exit 127
+fi
+

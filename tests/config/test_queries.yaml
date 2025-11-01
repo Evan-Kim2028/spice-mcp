@@ -1,0 +1,259 @@
+# Standardized test queries for cross-platform consistency
+test_queries:
+  # Basic functionality queries
+  simple_select:
+    sql: "SELECT 1 as test_col, 'fixed_value' as message"
+    name: "Simple Select Test"
+    expected:
+      rows: 1
+      columns: 2
+      column_names: ["test_col", "message"]
+      data_validation:
+        test_col: 1
+        message: "fixed_value"
+    
+  parametric:
+    sql: "SELECT {{limit_count}} as value, '{{test_string}}' as message"
+    name: "Parameterized Query Test"
+    parameters:
+      limit_count: 5
+      test_string: "hello_world"
+    expected:
+      rows: 1
+      columns: 2
+      column_names: ["value", "message"]
+      data_validation:
+        value: 5
+        message: "hello_world"
+        
+  # Data type validation queries
+  data_types:
+    sql: |
+      SELECT 
+        1 as int_col,
+        123.45 as float_col, 
+        'test_string' as string_col,
+        true as bool_col,
+        DOUBLE '123.45' as double_col,
+        DATE '2023-01-01' as date_col,
+        TIMESTAMP '2023-01-01 12:00:00' as timestamp_col,
+        NULL as null_col
+    name: "Data Types Test"
+    expected:
+      rows: 1
+      columns: 8
+      column_names: ["int_col", "float_col", "string_col", "bool_col", "double_col", "date_col", "timestamp_col", "null_col"]
+      data_validation:
+        int_col: 1
+        float_col: 123.45
+        string_col: "test_string"
+        bool_col: true
+        double_col: 123.45
+        date_col: "2023-01-01"
+        timestamp_col: "2023-01-01 12:00:00"
+        null_col: null
+
+  # Complex queries
+  aggregations:
+    sql: |
+      SELECT 
+        SUM(value) as total_value,
+        AVG(value) as avg_value,
+        MIN(value) as min_value,
+        MAX(value) as max_value,
+        COUNT(*) as row_count
+      FROM (
+        SELECT 10 as value
+        UNION SELECT 20
+        UNION SELECT 30
+      ) sample_data
+    name: "Aggregation Test"
+    expected:
+      rows: 1
+      columns: 5
+      column_names: ["total_value", "avg_value", "min_value", "max_value", "row_count"]
+      data_validation:
+        total_value: 60
+        avg_value: 20
+        min_value: 10
+        max_value: 30
+        row_count: 3
+  
+  time_series:
+    sql: |
+      SELECT 
+        date_trunc('day', block_time) as day,
+        COUNT(*) as block_count
+      FROM (
+        SELECT 
+          DATE '2023-01-01' + INTERVAL '1 day' * n as block_time
+        FROM (
+          SELECT generate_series(0, 4) as n
+        ) series
+      ) daily_blocks
+      GROUP BY day
+      ORDER BY day DESC
+      LIMIT 7
+    name: "Time Series Test"
+    expected:
+      min_rows: 1
+      max_rows: 7
+      columns: 2
+      column_names: ["day", "block_count"]
+      
+  joined_data:
+    sql: |
+      SELECT 
+        block_time,
+        block_number,
+        'ethereum_mainnet' as chain
+      FROM (
+        SELECT 
+          DATE '2023-01-01' as block_time,
+          1641024000 as block_number
+      ) blocks
+      WHERE block_time >= DATE '2023-01-01'
+      ORDER BY block_time DESC
+      LIMIT 5
+    name: "Joined Data Test"
+    expected:
+      rows: 1
+      columns: 3
+      column_names: ["block_time", "block_number", "chain"]
+      
+  # Stress test queries
+  large_result_set:
+    sql: |
+      SELECT 
+        n as row_num,
+        'row_' || n as row_label,
+        n * 1.5 as float_val,
+        n % 2 = 0 as is_even
+      FROM (
+        SELECT generate_series(1, 1000) as n
+      ) numbers
+    name: "Large Result Set Test"
+    expected:
+      rows: 1000
+      columns: 4
+      max_execution_time: 30.0
+      
+  cpu_intensive:
+    sql: |
+      SELECT 
+        n,
+        SQRT(n) as sqrt_n,
+        POW(n, 2) as n_squared,
+        n * (n + 1) / 2 as triangular_number
+      FROM (
+        SELECT generate_series(1, 500) as n
+      ) numbers
+    name: "CPU Intensive Test"
+    expected:
+      min_rows: 1
+      max_execution_time: 45.0
+
+# Error scenario queries
+error_scenarios:
+  invalid_syntax:
+    sql: "SELECTTTT INVALID SYNTAX"
+    expected_error: "syntax"
+    
+  division_by_zero:
+    sql: "SELECT 1/0 as error_col"
+    expected_error: "division"
+    
+  invalid_table:
+    sql: "SELECT * FROM nonexistent_table_xyz"
+    expected_error: "table.*not.*found"
+    
+  invalid_function:
+    sql: "SELECT nonexistent_function_xyz() as col"
+    expected_error: "function.*not.*found"
+    
+  invalid_parameter:
+    sql: "SELECT {{nonexistent_parameter}} as col"
+    expected_error: "parameter.*not.*found"
+    
+  empty_query:
+    sql: ""
+    expected_error: "empty"
+    
+  very_long_query:
+    sql: |
+      SELECT 
+        {% for i in range(1000) %}{{i}} as亦可{{i}}{{"," if not loop.last}}{% endfor %}
+    expected_error: ".*"  # Some error expected
+
+# Real-world example queries
+real_world_examples:
+  ethereum_block_stats:
+    name: "Ethereum Block Statistics"
+    description: "Get recent Ethereum block statistics"
+    sql: |
+      SELECT 
+        DATE_TRUNC('day', block_time) as day,
+        COUNT(*) as block_count,
+        MIN(block_number) as min_block,
+        MAX(block_number) as max_block,
+        AVG(gas_used) as avg_gas_used
+      FROM ethereum.blocks
+      WHERE block_time >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY day
+      ORDER BY day DESC
+      LIMIT 7
+    requires_blockchain_data: true
+    
+  defi_volume_stats:
+    name: "DeFi Volume Statistics" 
+    description: "Mock DeFi volume aggregation"
+    sql: |
+      SELECT 
+        'ethereum' as chain,
+        'uniswap_v3' as protocol,
+        SUM(volume) as total_volume,
+        COUNT(DISTINCT pool) as pool_count,
+        DATE_TRUNC('day', block_time) as day
+      FROM (
+        SELECT 
+          DATE '2024-01-01' + INTERVAL '1 day' * n as block_time,
+          n * 1000 as volume,
+          'pool_' || n as pool
+        FROM (
+          SELECT generate_series(1, 30) as n
+        ) series
+      ) mock_trades
+      WHERE block_time >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY day, chain, protocol
+      ORDER BY day DESC
+    expected:
+      min_rows: 1
+      max_rows: 7
+      columns: 5
+
+# Test data generation
+test_data:
+  parameter_sets:
+    limit_tests:
+      - name: "small_limit"
+        parameters: {limit: 5}
+      - name: "medium_limit" 
+        parameters: {limit: 50}
+      - name: "large_limit"
+        parameters: {limit: 500}
+        
+    performance_tests:
+      - name: "low_performance"
+        parameters: {performance: "low"}
+      - name: "medium_performance" 
+        parameters: {performance: "medium"}
+      - name: "high_performance"
+        parameters: {performance: "large"}
+        
+    timeout_tests:
+      - name: "short_timeout"
+        parameters: {timeout_seconds: 10}
+      - name: "medium_timeout"
+        parameters: {timeout_seconds: 60}
+      - name: "long_timeout"
+        parameters: {timeout_seconds: 300}

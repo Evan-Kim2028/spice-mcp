@@ -1,0 +1,108 @@
+[project]
+name = "spice-mcp"
+version = "0.1.0"
+description = "MCP server for Dune Analytics data access"
+authors = [
+    { name = "Evan-Kim2028", email = "ekcopersonal@gmail.com" }
+]
+dependencies = [
+    "polars>=1.35.1",
+    "requests>=2.31.0",
+    "aiohttp>=3.9.5",
+    "rich>=13.3.3",
+    "rich-argparse>=1.5.2",
+    "mcp>=0.9.0",
+    "fastmcp>=0.3.0",
+]
+readme = "README.md"
+requires-python = ">=3.13"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.13",
+    "Typing :: Typed",
+    "Operating System :: OS Independent",
+]
+
+[project.scripts]
+spice-mcp = "spice_mcp.mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "freezegun>=1.4.0",
+    "jsonschema>=4.21.1",
+    "responses>=0.25.0",
+    "aioresponses>=0.7.6",
+    "vcrpy>=6.0.1",
+    "hypothesis>=6.100.0",
+    "ruff>=0.6.9",
+    "mypy>=1.11.2",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+extend-exclude = ["build", "dist", "docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "PYI"]
+ignore = ["E501", "E402", "E702"]
+
+[tool.ruff.format]
+quote-style = "preserve"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+[tool.ruff.lint.isort]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/style/test_polars_lazy.py" = ["UP028"]
+"tests/tools/test_schemas.py" = ["F841"]
+
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true
+warn_unused_ignores = false
+warn_redundant_casts = false
+warn_unused_configs = false
+no_implicit_optional = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+warn_return_any = false
+incremental = true
+cache_dir = ".mypy_cache"
+files = ["src"]
+exclude = [
+    "^tests/",
+    "^notes/",
+]
+
+# Disable specific error codes for better compatibility
+disable_error_code = [
+    "assignment",  # Allow broader type assignments
+    "arg-type",    # Allow more flexible argument types  
+    "call-overload", # Allow more flexible function calls
+    "override",    # Allow signature variations in overrides
+    "no-redef",    # Allow some variable redefinitions
+    "union-attr",  # Allow accessing attributes on union types
+    "return-value", # Allow more flexible return types
+    "var-annotated", # Allow implicit type annotations
+    "misc",        # Allow complex union types
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/spice_mcp"]
+# Ensure PEP 561 typing marker is included in the wheel
+include = [
+    "src/spice_mcp/spice/py.typed",
+]

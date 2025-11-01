@@ -1,0 +1,91 @@
+# Test environment configurations
+environments:
+  sandbox:
+    name: "Sandbox Testing"
+    description: "Free tier API with rate limits"
+    max_concurrent_queries: 2
+    rate_limit_per_minute: 30
+    timeout_seconds: 60
+    performance_level: "medium"
+    
+  staging:
+    name: "Staging Testing" 
+    description: "Paid tier with moderate limits"
+    max_concurrent_queries: 5
+    rate_limit_per_minute: 120
+    timeout_seconds: 120
+    performance_level: "medium"
+    
+  production:
+    name: "Production Testing"
+    description: "Full access with high limits"
+    max_concurrent_queries: 10
+    rate_limit_per_minute: 600
+    timeout_seconds: 300
+    performance_level: "large"
+
+# Test configurations
+test_configurations:
+  smoke_tests:
+    timeout: 30
+    max_retries: 2
+    parallel_execution: false
+    
+  integration_tests:
+    timeout: 120
+    max_retries: 3
+    parallel_execution: false
+    
+  performance_tests:
+    timeout: 300
+    max_retries: 2
+    parallel_execution: true
+    warmup_runs: 3
+    
+  stress_tests:
+    timeout: 600
+    max_retries: 1
+    parallel_execution: true
+    resource_monitoring: true
+
+# Dune API endpoints
+api_endpoints:
+  base_url: "https://api.dune.com/api/v1"
+  endpoints:
+    query_create: "/query/"
+    query_get: "/query/{query_id}"
+    query_execute: "/query/{query_id}/execute"
+    query_results: "/query/{query_id}/results/csv"
+    query_results_json: "/query/{query_id}/results"
+    execution_status: "/execution/{execution_id}/status"
+    execution_results: "/execution/{execution_id}/results/csv"
+    user_info: "/user"
+
+# Performance benchmarks
+performance_benchmarks:
+  simple_query:
+    max_execution_time: 10.0
+    expected_rows: 1
+    expected_columns: 2
+    
+  complex_query:
+    max_execution_time: 30.0
+    expected_rows: 5
+    expected_columns: 4
+    
+  aggregated_query:
+    max_execution_time: 20.0
+    expected_rows: 1
+    expected_columns: 5
+    
+  time_series_query:
+    max_execution_time: 25.0
+    max_rows: 100
+    expected_columns: 2
+
+# Resource limits
+resource_limits:
+  memory_mb: 512
+  max_result_size_mb: 100
+  max_timeout_seconds: 300
+  max_concurrent_tests: 3
