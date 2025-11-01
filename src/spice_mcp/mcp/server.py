@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 os.environ.setdefault("FASTMCP_NO_BANNER", "1")
 os.environ.setdefault("FASTMCP_LOG_LEVEL", "ERROR")
@@ -33,6 +33,7 @@ from ..logging.query_history import QueryHistory
 from ..service_layer.discovery_service import DiscoveryService
 from ..service_layer.query_admin_service import QueryAdminService
 from ..service_layer.query_service import QueryService
+from ..service_layer.verification_service import VerificationService
 from .tools.execute_query import ExecuteQueryTool
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ QUERY_ADMIN_SERVICE: QueryAdminService | None = None
 DISCOVERY_SERVICE: DiscoveryService | None = None
 SPELLBOOK_EXPLORER: SpellbookExplorer | None = None
 HTTP_CLIENT: HttpClient | None = None
+VERIFICATION_SERVICE: VerificationService | None = None
 
 EXECUTE_QUERY_TOOL: ExecuteQueryTool | None = None
 
@@ -57,7 +59,7 @@ app = FastMCP("spice-mcp")
 def _ensure_initialized() -> None:
     """Initialize configuration and tool instances if not already initialized."""
     global CONFIG, QUERY_HISTORY, DUNE_ADAPTER, QUERY_SERVICE, DISCOVERY_SERVICE, QUERY_ADMIN_SERVICE
-    global EXECUTE_QUERY_TOOL, HTTP_CLIENT, SPELLBOOK_EXPLORER
+    global EXECUTE_QUERY_TOOL, HTTP_CLIENT, SPELLBOOK_EXPLORER, VERIFICATION_SERVICE
 
     if CONFIG is not None and EXECUTE_QUERY_TOOL is not None:
         return
@@ -95,6 +97,15 @@ def _ensure_initialized() -> None:
     
     # Initialize Spellbook explorer (lazy, clones repo on first use)
     SPELLBOOK_EXPLORER = SpellbookExplorer()
+    
+    # Initialize verification service with persistent cache
+    from pathlib import Path
+    cache_dir = Path.home() / ".spice_mcp"
+    cache_dir.mkdir(exist_ok=True)
+    VERIFICATION_SERVICE = VerificationService(
+        cache_path=cache_dir / "table_verification_cache.json",
+        dune_adapter=DUNE_ADAPTER,
+    )
 
     EXECUTE_QUERY_TOOL = ExecuteQueryTool(CONFIG, QUERY_SERVICE, QUERY_HISTORY)
 
@@ -200,17 +211,17 @@ def dune_query_info(query: str) -> dict[str, Any]:
 
 def _dune_query_impl(
     query: str,
-    parameters: Optional[dict[str, Any]] = None,
+    parameters: dict[str, Any] | None = None,
     refresh: bool = False,
-    max_age: Optional[float] = None,
-    limit: Optional[int] = None,
-    offset: Optional[int] = None,
-    sample_count: Optional[int] = None,
-    sort_by: Optional[str] = None,
-    columns: Optional[list[str]] = None,
+    max_age: float | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+    sample_count: int | None = None,
+    sort_by: str | None = None,
+    columns: list[str] | None = None,
     format: Literal["preview", "raw", "metadata", "poll"] = "preview",
-    extras: Optional[dict[str, Any]] = None,
-    timeout_seconds: Optional[float] = None,
+    extras: dict[str, Any] | None = None,
+    timeout_seconds: float | None = None,
 ) -> dict[str, Any]:
     """Internal implementation of dune_query to avoid FastMCP overload detection."""
     _ensure_initialized()
@@ -275,19 +286,31 @@ def _dune_query_impl(
 )
 def dune_query(
     query: str,
-    parameters: Optional[dict[str, Any]] = None,
+    parameters: dict[str, Any] | None = None,
     refresh: bool = False,
-    max_age: Optional[float] = None,
-    limit: Optional[int] = None,
-    offset: Optional[int] = None,
-    sample_count: Optional[int] = None,
-    sort_by: Optional[str] = None,
-    columns: Optional[list[str]] = None,
+    max_age: float | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+    sample_count: int | None = None,
+    sort_by: str | None = None,
+    columns: list[str] | None = None,
     format: Literal["preview", "raw", "metadata", "poll"] = "preview",
-    extras: Optional[dict[str, Any]] = None,
-    timeout_seconds: Optional[float] = None,
+    extras: dict[str, Any] | None = None,
+    timeout_seconds: float | None = None,
 ) -> dict[str, Any]:
     """Execute Dune queries (by ID, URL, or raw SQL) and return agent-optimized preview.
+    
+    ⚠️ IMPORTANT: ALWAYS use dune_discover FIRST to find verified table names.
+    Do not guess table names or query information_schema directly.
+    
+    The query parameter accepts:
+    - Query IDs (e.g., "123456")
+    - Query URLs (e.g., "https://dune.com/queries/123456")
+    - Raw SQL using tables discovered via dune_discover
+    
+    For Spellbook models, use the 'dune_table' field returned by dune_discover.
+    Example: dune_discover(keyword="walrus") → returns dune_table="sui_walrus.base_table"
+             Then use: dune_query(query="SELECT * FROM sui_walrus.base_table LIMIT 10")
     
     This wrapper ensures FastMCP doesn't detect overloads in imported functions.
     """
@@ -317,22 +340,6 @@ def dune_query(
 )
 def dune_health_check() -> dict[str, Any]:
     return compute_health_status()
-
-
-def _dune_find_tables_impl(
-    keyword: str | None = None,
-    schema: str | None = None,
-    limit: int = 50,
-) -> dict[str, Any]:
-    _ensure_initialized()
-    assert DISCOVERY_SERVICE is not None
-    out: dict[str, Any] = {}
-    if keyword:
-        out["schemas"] = DISCOVERY_SERVICE.find_schemas(keyword)
-    if schema:
-        tables = DISCOVERY_SERVICE.list_tables(schema, limit=limit)
-        out["tables"] = [summary.table for summary in tables]
-    return out
 
 
 def _unified_discover_impl(
@@ -415,10 +422,45 @@ def _unified_discover_impl(
                     "table": model["table"],
                     "fully_qualified_name": model["fully_qualified_name"],
                     "source": "spellbook",
+                    # Include resolved Dune table names
+                    "dune_schema": model.get("dune_schema"),
+                    "dune_alias": model.get("dune_alias"),
+                    "dune_table": model.get("dune_table"),
                 }
                 if "columns" in model:
                     table_info["columns"] = model["columns"]
                 out["tables"].append(table_info)
+    
+    # Verify Spellbook tables exist in Dune before returning
+    if source in ("spellbook", "both") and out["tables"]:
+        assert VERIFICATION_SERVICE is not None
+        # Extract Spellbook tables that need verification
+        spellbook_tables = [
+            (t["dune_schema"], t["dune_alias"])
+            for t in out["tables"]
+            if t.get("source") == "spellbook" and t.get("dune_schema") and t.get("dune_alias")
+        ]
+        
+        if spellbook_tables:
+            # Verify tables exist (uses cache, queries Dune only if needed)
+            verification_results = VERIFICATION_SERVICE.verify_tables_batch(spellbook_tables)
+            
+            # Filter: only return tables that exist in Dune
+            verified_tables = []
+            for t in out["tables"]:
+                if t.get("source") != "spellbook":
+                    # Keep Dune tables as-is
+                    verified_tables.append(t)
+                elif t.get("dune_table") and verification_results.get(t["dune_table"], False):
+                    # Spellbook table verified to exist
+                    t["verified"] = True
+                    verified_tables.append(t)
+            
+            out["tables"] = verified_tables
+            
+            # Add helpful message if no tables found
+            if not out["tables"] and len(spellbook_tables) > 0:
+                out["message"] = "No verified tables found. Try different keywords or check schema names."
     
     # Deduplicate and sort schemas
     out["schemas"] = sorted(list(set(out["schemas"])))
@@ -444,11 +486,19 @@ def dune_discover(
     include_columns: bool = True,
 ) -> dict[str, Any]:
     """
-    Unified discovery tool for Dune tables and Spellbook models.
+    PRIMARY discovery tool for finding tables in Dune.
     
-    This tool can search both Dune's live schemas (via SQL queries) and Spellbook's
-    dbt models (via GitHub repo parsing) in a single call. You don't need to decide
-    which source to use - it can search both automatically.
+    ⚠️ IMPORTANT: ALWAYS use this tool instead of querying information_schema directly.
+    Querying information_schema is slow and causes lag. This tool uses optimized
+    native SHOW statements for fast discovery.
+    
+    This tool automatically:
+    - Parses dbt configs from Spellbook models to resolve actual Dune table names
+    - Verifies tables exist in Dune before returning them
+    - Returns ONLY verified, queryable tables
+    
+    All returned tables are VERIFIED to exist - you can query them immediately using
+    the 'dune_table' field.
     
     Args:
         keyword: Search term(s) - can be a string or list of strings
@@ -463,16 +513,25 @@ def dune_discover(
         Dictionary with:
         - 'schemas': List of matching schema names
         - 'tables': List of table/model objects, each with:
-          - schema: Schema name
-          - table: Table/model name
-          - fully_qualified_name: schema.table
+          - schema: Schema name (Spellbook subproject name)
+          - table: Table/model name (Spellbook model name)
+          - fully_qualified_name: schema.table (Spellbook format)
           - source: "dune" or "spellbook"
+          - dune_schema: Actual Dune schema name (for Spellbook models)
+          - dune_alias: Actual Dune table alias (for Spellbook models)
+          - dune_table: Verified, queryable Dune table name (e.g., "sui_walrus.base_table")
+          - verified: True (all returned tables are verified to exist)
           - columns: Column details (for Spellbook models, if include_columns=True)
         - 'source': The source parameter used
+        - 'message': Helpful message if no tables found
     
     Examples:
-        # Search both sources for layerzero
-        dune_discover(keyword="layerzero")
+        # Search both sources for walrus - returns verified tables only
+        dune_discover(keyword="walrus")
+        # → Returns tables with dune_table field like "sui_walrus.base_table"
+        
+        # Use the dune_table field to query immediately
+        dune_query(query="SELECT * FROM sui_walrus.base_table LIMIT 10")
         
         # Search only Spellbook
         dune_discover(keyword=["layerzero", "bridge"], source="spellbook")
@@ -497,26 +556,6 @@ def dune_discover(
             "keyword": keyword,
             "schema": schema,
             "source": source,
-        })
-
-
-@app.tool(
-    name="dune_find_tables",
-    title="Find Tables",
-    description="Search schemas and optionally list tables.",
-    tags={"dune", "schema"},
-)
-def dune_find_tables(keyword: str | None = None, schema: str | None = None, limit: int = 50) -> dict[str, Any]:
-    """
-    Search schemas and optionally list tables in Dune.
-    """
-    try:
-        return _dune_find_tables_impl(keyword=keyword, schema=schema, limit=limit)
-    except Exception as e:
-        return error_response(e, context={
-            "tool": "dune_find_tables",
-            "keyword": keyword,
-            "schema": schema,
         })
 
 
@@ -594,10 +633,22 @@ def _spellbook_find_models_impl(
                     matches_keyword = any(kw.lower() in table_name for kw in keywords)
                     
                     if matches_keyword:
+                        # Get model details including resolved Dune table names
+                        models_dict = SPELLBOOK_EXPLORER._load_models()
+                        model_details = None
+                        for m in models_dict.get(schema_name, []):
+                            if m["name"] == table_summary.table:
+                                model_details = m
+                                break
+                        
                         model_info: dict[str, Any] = {
                             "schema": schema_name,
                             "table": table_summary.table,
                             "fully_qualified_name": f"{schema_name}.{table_summary.table}",
+                            # Include resolved Dune table names if available
+                            "dune_schema": model_details.get("dune_schema") if model_details else None,
+                            "dune_alias": model_details.get("dune_alias") if model_details else None,
+                            "dune_table": model_details.get("dune_table") if model_details else None,
                         }
                         
                         # Include column details if requested
@@ -629,10 +680,22 @@ def _spellbook_find_models_impl(
             out["models"] = []
         
         for table_summary in tables:
+            # Get model details including resolved Dune table names
+            models_dict = SPELLBOOK_EXPLORER._load_models()
+            model_details = None
+            for m in models_dict.get(schema, []):
+                if m["name"] == table_summary.table:
+                    model_details = m
+                    break
+            
             model_info: dict[str, Any] = {
                 "schema": schema,
                 "table": table_summary.table,
                 "fully_qualified_name": f"{schema}.{table_summary.table}",
+                # Include resolved Dune table names if available
+                "dune_schema": model_details.get("dune_schema") if model_details else None,
+                "dune_alias": model_details.get("dune_alias") if model_details else None,
+                "dune_table": model_details.get("dune_table") if model_details else None,
             }
             
             # Include column details if requested
@@ -654,47 +717,6 @@ def _spellbook_find_models_impl(
             out["models"].append(model_info)
     
     return out
-
-
-@app.tool(
-    name="spellbook_find_models",
-    title="Search Spellbook",
-    description="Search dbt models in Spellbook GitHub repository.",
-    tags={"spellbook", "dbt", "schema"},
-)
-def spellbook_find_models(
-    keyword: str | list[str] | None = None,
-    schema: str | None = None,
-    limit: int = 50,
-    include_columns: bool = True,
-) -> dict[str, Any]:
-    """
-    Search Spellbook dbt models from GitHub repository.
-    
-    Args:
-        keyword: Search term(s) to find models - can be a string or list of strings
-        schema: Schema/subproject name to list tables from
-        limit: Maximum number of models to return
-        include_columns: Whether to include column details in results (default: True)
-    
-    Returns:
-        Dictionary with 'schemas' and 'models' keys
-    """
-    try:
-        return _spellbook_find_models_impl(
-            keyword=keyword,
-            schema=schema,
-            limit=limit,
-            include_columns=include_columns,
-        )
-    except Exception as e:
-        return error_response(e, context={
-            "tool": "spellbook_find_models",
-            "keyword": keyword,
-            "schema": schema,
-        })
-
-
 
 
 # Resources

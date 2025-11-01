@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import io
+import os
 import time
 from typing import TYPE_CHECKING, overload
-import os
 
 from ..http_client import HttpClient
 from . import cache as _cache
