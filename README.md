@@ -52,10 +52,8 @@ An MCP server that provides AI agents with direct access to [Dune Analytics](htt
 |------|-------------|----------------|
 | `dune_query` | Execute queries by ID, URL, or raw SQL | `query` (str), `parameters` (object), `limit` (int), `offset` (int), `format` (`preview\|raw\|metadata\|poll`), `refresh` (bool), `timeout_seconds` (float) |
 | `dune_query_info` | Get metadata for a saved query | `query` (str - ID or URL) |
-| `dune_discover` | Unified discovery across Dune API and Spellbook | `keyword` (str\|list), `schema` (str), `limit` (int), `source` (`dune\|spellbook\|both`), `include_columns` (bool) |
-| `dune_find_tables` | Search schemas and list tables | `keyword` (str), `schema` (str), `limit` (int) |
+| `dune_discover` | Unified discovery across Dune API and Spellbook (returns verified tables only) | `keyword` (str\|list), `schema` (str), `limit` (int), `source` (`dune\|spellbook\|both`), `include_columns` (bool) |
 | `dune_describe_table` | Get column metadata for a table | `schema` (str), `table` (str) |
-| `spellbook_find_models` | Search Spellbook dbt models | `keyword` (str\|list), `schema` (str), `limit` (int), `include_columns` (bool) |
 | `dune_health_check` | Verify API key and configuration | (no parameters) |
 | `dune_query_create` | Create a new saved query | `name` (str), `query_sql` (str), `description` (str), `tags` (list), `parameters` (list) |
 | `dune_query_update` | Update an existing saved query | `query_id` (int), `name` (str), `query_sql` (str), `description` (str), `tags` (list), `parameters` (list) |

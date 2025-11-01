@@ -27,5 +27,8 @@ Helpers in this repo
   - `find_schemas(keyword)`, `list_tables(schema, limit)`, `describe_table(schema, table)`
 
 MCP Tools
-- dune_find_tables: search schemas and list tables
+- dune_discover: **PRIMARY discovery tool** - unified search across Dune API and Spellbook, returns verified tables only
+  - Automatically parses dbt configs from Spellbook models to resolve actual Dune table names
+  - Verifies tables exist in Dune before returning (uses persistent cache)
+  - Filters out non-existent tables
 - dune_describe_table: describe columns with SHOW + fallback
