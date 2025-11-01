@@ -27,6 +27,7 @@ from ..adapters.dune import urls as dune_urls
 from ..adapters.dune.admin import DuneAdminAdapter
 from ..adapters.dune.client import DuneAdapter
 from ..adapters.http_client import HttpClient
+from ..adapters.spellbook.explorer import SpellbookExplorer
 from ..config import Config
 from ..core.errors import error_response
 from ..logging.query_history import QueryHistory
@@ -47,6 +48,7 @@ DUNE_ADAPTER: DuneAdapter | None = None
 QUERY_SERVICE: QueryService | None = None
 QUERY_ADMIN_SERVICE: QueryAdminService | None = None
 DISCOVERY_SERVICE: DiscoveryService | None = None
+SPELLBOOK_EXPLORER: SpellbookExplorer | None = None
 SUI_SERVICE: SuiService | None = None
 HTTP_CLIENT: HttpClient | None = None
 
@@ -60,7 +62,7 @@ app = FastMCP("spice-mcp")
 def _ensure_initialized() -> None:
     """Initialize configuration and tool instances if not already initialized."""
     global CONFIG, QUERY_HISTORY, DUNE_ADAPTER, QUERY_SERVICE, DISCOVERY_SERVICE, SUI_SERVICE, QUERY_ADMIN_SERVICE
-    global EXECUTE_QUERY_TOOL, SUI_OVERVIEW_TOOL, HTTP_CLIENT
+    global EXECUTE_QUERY_TOOL, SUI_OVERVIEW_TOOL, HTTP_CLIENT, SPELLBOOK_EXPLORER
 
     if CONFIG is not None and EXECUTE_QUERY_TOOL is not None:
         return
@@ -96,6 +98,9 @@ def _ensure_initialized() -> None:
         )
     )
     SUI_SERVICE = SuiService(QUERY_SERVICE)
+    
+    # Initialize Spellbook explorer (lazy, clones repo on first use)
+    SPELLBOOK_EXPLORER = SpellbookExplorer()
 
     EXECUTE_QUERY_TOOL = ExecuteQueryTool(CONFIG, QUERY_SERVICE, QUERY_HISTORY)
     SUI_OVERVIEW_TOOL = SuiPackageOverviewTool(SUI_SERVICE)
@@ -318,6 +323,101 @@ def dune_describe_table(schema: str, table: str) -> dict[str, Any]:
     except Exception as e:
         return error_response(e, context={
             "tool": "dune_describe_table",
+            "schema": schema,
+            "table": table,
+        })
+
+
+def _spellbook_find_models_impl(
+    keyword: str | None = None,
+    schema: str | None = None,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """Implementation for spellbook model discovery."""
+    _ensure_initialized()
+    assert SPELLBOOK_EXPLORER is not None
+    out: dict[str, Any] = {}
+    if keyword:
+        schemas = SPELLBOOK_EXPLORER.find_schemas(keyword)
+        out["schemas"] = [match.schema for match in schemas]
+    if schema:
+        tables = SPELLBOOK_EXPLORER.list_tables(schema, limit=limit)
+        out["tables"] = [summary.table for summary in tables]
+    return out
+
+
+@app.tool(
+    name="spellbook_find_models",
+    title="Search Spellbook",
+    description="Search dbt models in Spellbook GitHub repository (https://github.com/duneanalytics/spellbook). Finds schemas/subprojects and lists tables/models.",
+    tags={"spellbook", "dbt", "schema"},
+)
+def spellbook_find_models(keyword: str | None = None, schema: str | None = None, limit: int = 50) -> dict[str, Any]:
+    """
+    Search Spellbook dbt models from GitHub repository.
+    
+    Spellbook is Dune's interpretation layer with curated dbt models. This tool
+    searches the Spellbook GitHub repo to discover available schemas and tables.
+    
+    Args:
+        keyword: Search term to find schemas/subprojects (e.g., "dex", "nft", "tokens")
+        schema: Schema/subproject name to list tables from (e.g., "dex", "spellbook")
+        limit: Maximum number of tables to return
+    
+    Returns:
+        Dictionary with 'schemas' and/or 'tables' keys
+    """
+    try:
+        return _spellbook_find_models_impl(keyword=keyword, schema=schema, limit=limit)
+    except Exception as e:
+        return error_response(e, context={
+            "tool": "spellbook_find_models",
+            "keyword": keyword,
+            "schema": schema,
+        })
+
+
+def _spellbook_describe_model_impl(schema: str, table: str) -> dict[str, Any]:
+    """Implementation for describing a spellbook model."""
+    _ensure_initialized()
+    assert SPELLBOOK_EXPLORER is not None
+    desc = SPELLBOOK_EXPLORER.describe_table(schema, table)
+    cols = []
+    for col in desc.columns:
+        cols.append(
+            {
+                "name": col.name,
+                "dune_type": col.dune_type,
+                "polars_dtype": col.polars_dtype,
+                "extra": col.extra,
+                "comment": col.comment,
+            }
+        )
+    return {"columns": cols, "table": desc.fully_qualified_name}
+
+
+@app.tool(
+    name="spellbook_describe_model",
+    title="Describe Spellbook Model",
+    description="Describe columns for a dbt model in Spellbook repository.",
+    tags={"spellbook", "dbt", "schema"},
+)
+def spellbook_describe_model(schema: str, table: str) -> dict[str, Any]:
+    """
+    Describe a Spellbook dbt model by parsing its SQL and schema.yml.
+    
+    Args:
+        schema: Schema/subproject name (e.g., "dex", "spellbook")
+        table: Model/table name
+    
+    Returns:
+        Dictionary with 'table' and 'columns' keys
+    """
+    try:
+        return _spellbook_describe_model_impl(schema=schema, table=table)
+    except Exception as e:
+        return error_response(e, context={
+            "tool": "spellbook_describe_model",
             "schema": schema,
             "table": table,
         })
