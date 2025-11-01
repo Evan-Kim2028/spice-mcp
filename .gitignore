@@ -24,3 +24,4 @@ debug_api.py
 
 # Local testing environment
 test_spice_mcp/
+scripts/
