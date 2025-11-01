@@ -2,6 +2,10 @@
 
 spice-mcp is an MCP server for [Dune](https://dune.com/) Analytics. It wraps a curated subset of the original Spice client inside a clean architecture (`core` models/ports → `adapters.dune` → service layer → FastMCP tools) and adds agent-friendly workflows for discovery and Sui package exploration. Results are Polars-first in Python and compact, token-efficient in MCP responses.
 
+<a href="https://glama.ai/mcp/servers/@Evan-Kim2028/spice-mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@Evan-Kim2028/spice-mcp/badge" alt="Spice MCP server" />
+</a>
+
 Requirements: Python 3.13+
 
 This project uses FastMCP for typed, decorator-registered tools and resources.
