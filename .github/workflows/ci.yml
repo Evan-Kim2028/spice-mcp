@@ -48,7 +48,7 @@ jobs:
       - name: Install dependencies (uv)
         run: |
           uv --version
-          uv sync --frozen --dev
+          uv sync --frozen --group dev
 
       - name: Ruff lint
         run: uv run ruff check --output-format=github --color always .
@@ -93,7 +93,7 @@ jobs:
       - name: Install dependencies (uv)
         run: |
           uv --version
-          uv sync --frozen --dev
+          uv sync --frozen --group dev
 
       - name: mypy
         env:
@@ -132,7 +132,7 @@ jobs:
       - name: Install dependencies (uv)
         run: |
           uv --version
-          uv sync --frozen --dev
+          uv sync --frozen --group dev
 
       - name: Run tests (skip live) with coverage
         env:

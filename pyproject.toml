@@ -36,6 +36,23 @@ managed = true
 dev-dependencies = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
+    "freezegun>=1.4.0",
+    "jsonschema>=4.21.1",
+    "responses>=0.25.0",
+    "aioresponses>=0.7.6",
+    "vcrpy>=6.0.1",
+    "hypothesis>=6.100.0",
+    "ruff>=0.6.9",
+    "mypy>=1.11.2",
+]
+
+# uv dependency groups for CI and local dev
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
     "freezegun>=1.4.0",
     "jsonschema>=4.21.1",
     "responses>=0.25.0",
@@ -104,5 +121,5 @@ allow-direct-references = true
 packages = ["src/spice_mcp"]
 # Ensure PEP 561 typing marker is included in the wheel
 include = [
-    "src/spice_mcp/spice/py.typed",
+    "src/spice_mcp/py.typed",
 ]
