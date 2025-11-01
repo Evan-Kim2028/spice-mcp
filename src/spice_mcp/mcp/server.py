@@ -387,6 +387,8 @@ def _unified_discover_impl(
                     "table": summary.table,
                     "fully_qualified_name": f"{schema}.{summary.table}",
                     "source": "dune",
+                    "dune_table": f"{schema}.{summary.table}",
+                    "verified": True,
                 }
                 for summary in tables
             ]

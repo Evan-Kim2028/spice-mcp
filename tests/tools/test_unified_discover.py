@@ -226,3 +226,28 @@ def test_unified_discover_response_format(monkeypatch, tmp_path):
             assert "verified" in table
             assert table["verified"] is True
 
+
+def test_unified_discover_dune_tables_have_verified_fields(monkeypatch, tmp_path):
+    """Test that Dune tables include dune_table and verified fields."""
+    monkeypatch.setenv("DUNE_API_KEY", "test-key")
+    monkeypatch.setenv("SPICE_QUERY_HISTORY", str(tmp_path / "history.jsonl"))
+    
+    server._ensure_initialized()
+    stub_explorer = StubDuneExplorer()
+    from spice_mcp.service_layer.discovery_service import DiscoveryService
+    server.DISCOVERY_SERVICE = DiscoveryService(stub_explorer)
+    
+    # Use schema to get actual tables (not just schemas)
+    result = server._unified_discover_impl(schema="sui_base", source="dune")
+    
+    assert result["source"] == "dune"
+    assert len(result["tables"]) > 0
+    
+    # Verify all Dune tables have dune_table and verified fields
+    for table in result["tables"]:
+        assert table["source"] == "dune"
+        assert "dune_table" in table
+        assert table["dune_table"] == f"{table['schema']}.{table['table']}"
+        assert "verified" in table
+        assert table["verified"] is True
+
