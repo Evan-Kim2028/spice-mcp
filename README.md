@@ -157,7 +157,7 @@ Core Tools (with parameters)
 - See [docs/index.md](docs/index.md) for full documentation:
   - Dune API structure and capabilities: [docs/dune_api.md](docs/dune_api.md)
   - Discovery patterns and examples: [docs/discovery.md](docs/discovery.md)
-  - Sui package workflows: [docs/sui_packages.md](docs/sui_packages.md)
+  
   - Tool reference and schemas: [docs/tools.md](docs/tools.md)
   - Codex CLI + tooling integration: [docs/codex_cli.md](docs/codex_cli.md), [docs/codex_cli_tools.md](docs/codex_cli_tools.md)
   - Architecture overview: [docs/architecture.md](docs/architecture.md)

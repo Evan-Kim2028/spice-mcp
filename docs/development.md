@@ -4,7 +4,7 @@ This document summarizes local development workflows for spice-mcp.
 
 ## Tooling
 
-- Tests: `pytest` (+ `pytest-asyncio`, `responses`, `aioresponses`, `vcrpy`)
+- Tests: `pytest` (+ `responses`, `vcrpy`, `hypothesis`)
 - Lint/Format: `ruff` (lint + import sort + formatting)
 - Types: `mypy`
 
@@ -36,7 +36,7 @@ Most unit/contract tests construct stub implementations of the ports in `src/spi
 
 ## Style
 
-- Follow Ruff + ruff-format defaults (88 cols, py39).
+- Follow Ruff + ruff-format defaults (88 cols, py313).
 - Prefer small, focused functions and explicit typing in `src/`.
 - Tests prioritize readability over strict typing.
 - Export `SPICE_MCP_SKIP_DOTENV=1` when running tests that expect the API key to be unset.
