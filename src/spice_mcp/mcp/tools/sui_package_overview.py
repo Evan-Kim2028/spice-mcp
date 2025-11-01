@@ -36,7 +36,7 @@ class SuiPackageOverviewTool(MCPTool):
             "additionalProperties": False,
         }
 
-    async def execute(
+    def execute(
         self, *, packages: list[str], hours: int = 72, timeout_seconds: float | None = 30
     ) -> dict[str, Any]:
         try:

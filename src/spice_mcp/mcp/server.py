@@ -46,7 +46,6 @@ QUERY_HISTORY: QueryHistory | None = None
 DUNE_ADAPTER: DuneAdapter | None = None
 QUERY_SERVICE: QueryService | None = None
 QUERY_ADMIN_SERVICE: QueryAdminService | None = None
-SEMAPHORE = None
 DISCOVERY_SERVICE: DiscoveryService | None = None
 SUI_SERVICE: SuiService | None = None
 HTTP_CLIENT: HttpClient | None = None
@@ -100,13 +99,6 @@ def _ensure_initialized() -> None:
 
     EXECUTE_QUERY_TOOL = ExecuteQueryTool(CONFIG, QUERY_SERVICE, QUERY_HISTORY)
     SUI_OVERVIEW_TOOL = SuiPackageOverviewTool(SUI_SERVICE)
-    # Concurrency gate for heavy query executions
-    try:
-        import asyncio
-        global SEMAPHORE
-        SEMAPHORE = asyncio.Semaphore(CONFIG.max_concurrent_queries)
-    except Exception:
-        pass
 
     logger.info("spice-mcp server ready (fastmcp)!")
 
@@ -173,7 +165,7 @@ def compute_health_status() -> dict[str, Any]:
     description="Fetch Dune query metadata (name, parameters, tags, SQL).",
     tags={"dune", "query"},
 )
-async def dune_query_info(query: str) -> dict[str, Any]:
+def dune_query_info(query: str) -> dict[str, Any]:
     _ensure_initialized()
     try:
         qid = dune_urls.get_query_id(query)
@@ -212,7 +204,7 @@ async def dune_query_info(query: str) -> dict[str, Any]:
     description="Execute Dune queries and return agent-optimized preview.",
     tags={"dune", "query"},
 )
-async def dune_query(
+def dune_query(
     query: str,
     parameters: dict[str, Any] | None = None,
     refresh: bool = False,
@@ -229,8 +221,8 @@ async def dune_query(
     _ensure_initialized()
     assert EXECUTE_QUERY_TOOL is not None
     try:
-        # Execute query directly without semaphore concurrency control
-        return await EXECUTE_QUERY_TOOL.execute(
+        # Execute query synchronously
+        return EXECUTE_QUERY_TOOL.execute(
             query=query,
             parameters=parameters,
             refresh=refresh,
@@ -259,11 +251,11 @@ async def dune_query(
     description="Validate Dune API key presence and logging setup.",
     tags={"health"},
 )
-async def dune_health_check() -> dict[str, Any]:
+def dune_health_check() -> dict[str, Any]:
     return compute_health_status()
 
 
-async def _dune_find_tables_impl(
+def _dune_find_tables_impl(
     keyword: str | None = None,
     schema: str | None = None,
     limit: int = 50,
@@ -285,9 +277,9 @@ async def _dune_find_tables_impl(
     description="Search schemas and optionally list tables.",
     tags={"dune", "schema"},
 )
-async def dune_find_tables(keyword: str | None = None, schema: str | None = None, limit: int = 50) -> dict[str, Any]:
+def dune_find_tables(keyword: str | None = None, schema: str | None = None, limit: int = 50) -> dict[str, Any]:
     try:
-        return await _dune_find_tables_impl(keyword=keyword, schema=schema, limit=limit)
+        return _dune_find_tables_impl(keyword=keyword, schema=schema, limit=limit)
     except Exception as e:
         return error_response(e, context={
             "tool": "dune_find_tables",
@@ -296,7 +288,7 @@ async def dune_find_tables(keyword: str | None = None, schema: str | None = None
         })
 
 
-async def _dune_describe_table_impl(schema: str, table: str) -> dict[str, Any]:
+def _dune_describe_table_impl(schema: str, table: str) -> dict[str, Any]:
     _ensure_initialized()
     assert DISCOVERY_SERVICE is not None
     desc = DISCOVERY_SERVICE.describe_table(schema, table)
@@ -320,9 +312,9 @@ async def _dune_describe_table_impl(schema: str, table: str) -> dict[str, Any]:
     description="Describe columns for a schema.table on Dune.",
     tags={"dune", "schema"},
 )
-async def dune_describe_table(schema: str, table: str) -> dict[str, Any]:
+def dune_describe_table(schema: str, table: str) -> dict[str, Any]:
     try:
-        return await _dune_describe_table_impl(schema=schema, table=table)
+        return _dune_describe_table_impl(schema=schema, table=table)
     except Exception as e:
         return error_response(e, context={
             "tool": "dune_describe_table",
@@ -337,7 +329,7 @@ async def dune_describe_table(schema: str, table: str) -> dict[str, Any]:
     description="Compact overview for Sui package activity.",
     tags={"sui"},
 )
-async def sui_package_overview(
+def sui_package_overview(
     packages: list[str],
     hours: int = 72,
     timeout_seconds: float | None = 30,
@@ -345,7 +337,7 @@ async def sui_package_overview(
     _ensure_initialized()
     assert SUI_OVERVIEW_TOOL is not None
     try:
-        return await SUI_OVERVIEW_TOOL.execute(
+        return SUI_OVERVIEW_TOOL.execute(
             packages=packages, hours=hours, timeout_seconds=timeout_seconds
         )
     except Exception as e:
@@ -357,7 +349,7 @@ async def sui_package_overview(
 
 
 @app.resource(uri="spice:sui/events_preview/{hours}/{limit}/{packages}", name="Sui Events Preview", description="Preview Sui events (3-day default) for comma-separated packages; returns JSON.")
-async def sui_events_preview_resource(hours: str, limit: str, packages: str) -> str:
+def sui_events_preview_resource(hours: str, limit: str, packages: str) -> str:
     import json
 
     try:
@@ -392,7 +384,7 @@ async def sui_events_preview_resource(hours: str, limit: str, packages: str) -> 
 
 # Resources
 @app.resource(uri="spice:history/tail/{n}", name="Query History Tail", description="Tail last N lines from query history")
-async def history_tail(n: str) -> str:
+def history_tail(n: str) -> str:
     from collections import deque
     try:
         nn = int(n)
@@ -418,7 +410,7 @@ async def history_tail(n: str) -> str:
 
 
 @app.resource(uri="spice:artifact/{sha}", name="SQL Artifact", description="SQL artifact by SHA-256")
-async def sql_artifact(sha: str) -> str:
+def sql_artifact(sha: str) -> str:
     import os
     import re
 
@@ -442,7 +434,7 @@ async def sql_artifact(sha: str) -> str:
     name="Sui Package Overview (cmd)",
     description="Compact overview for Sui package activity as a command-style resource."
 )
-async def sui_package_overview_cmd(hours: str, timeout_seconds: str, packages: str) -> str:
+def sui_package_overview_cmd(hours: str, timeout_seconds: str, packages: str) -> str:
     import json
 
     try:
@@ -488,7 +480,7 @@ if __name__ == "__main__":
     description="Create a new saved Dune query (name + SQL).",
     tags={"dune", "admin"},
 )
-async def dune_query_create(name: str, query_sql: str, description: str | None = None, tags: list[str] | None = None, parameters: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def dune_query_create(name: str, query_sql: str, description: str | None = None, tags: list[str] | None = None, parameters: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     _ensure_initialized()
     assert QUERY_ADMIN_SERVICE is not None
     try:
@@ -503,7 +495,7 @@ async def dune_query_create(name: str, query_sql: str, description: str | None =
     description="Update fields of a saved Dune query (name/SQL/description/tags/parameters).",
     tags={"dune", "admin"},
 )
-async def dune_query_update(query_id: int, name: str | None = None, query_sql: str | None = None, description: str | None = None, tags: list[str] | None = None, parameters: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def dune_query_update(query_id: int, name: str | None = None, query_sql: str | None = None, description: str | None = None, tags: list[str] | None = None, parameters: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     _ensure_initialized()
     assert QUERY_ADMIN_SERVICE is not None
     try:
@@ -518,7 +510,7 @@ async def dune_query_update(query_id: int, name: str | None = None, query_sql: s
     description="Fork an existing saved Dune query.",
     tags={"dune", "admin"},
 )
-async def dune_query_fork(source_query_id: int, name: str | None = None) -> dict[str, Any]:
+def dune_query_fork(source_query_id: int, name: str | None = None) -> dict[str, Any]:
     _ensure_initialized()
     assert QUERY_ADMIN_SERVICE is not None
     try:

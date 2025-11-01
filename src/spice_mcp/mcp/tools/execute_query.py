@@ -80,7 +80,7 @@ class ExecuteQueryTool(MCPTool):
             "additionalProperties": False,
         }
 
-    async def execute(
+    def execute(
         self,
         *,
         query: str,
@@ -340,7 +340,7 @@ class ExecuteQueryTool(MCPTool):
             # Add debugging information for raw SQL failures
             if q_type == "raw_sql" and "could not determine execution" in str(exc):
                 context.update({
-                    "debug_info": "Raw SQL execution failed - this may be related to FastMCP async/concurrency handling",
+                    "debug_info": "Raw SQL execution failed - check template query configuration and API key",
                     "template_query_id": template_id_value,
                     "environment_vars": {
                         "SPICE_RAW_SQL_QUERY_ID": os.getenv("SPICE_RAW_SQL_QUERY_ID"),
