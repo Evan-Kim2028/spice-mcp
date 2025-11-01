@@ -1,6 +1,6 @@
 """User agent utility to avoid importing overloaded functions."""
 
-ADAPTER_VERSION = "0.1.3"
+ADAPTER_VERSION = "0.1.4"
 
 
 def get_user_agent() -> str:
