@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "spice-mcp": {
+      "command": "spice-mcp",
+      "env": {
+        "DUNE_API_KEY": "${DUNE_API_KEY}"
+      }
+    }
+  }
+}
+

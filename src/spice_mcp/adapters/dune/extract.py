@@ -289,6 +289,14 @@ def query(
 
         # execute or retrieve query
         if query_id:
+            # Check if this is a parameterized query (raw SQL via template or parameterized query)
+            # For parameterized queries, results don't exist until execution, so skip GET attempt
+            is_parameterized = (
+                parameters is not None 
+                and len(parameters) > 0 
+                and ('query' in parameters or any(k != 'query' for k in parameters))
+            )
+            
             if cache and load_from_cache and not refresh:
                 cache_result, cache_execution = _cache.load_from_cache(
                     execute_kwargs, result_kwargs, output_kwargs
@@ -301,7 +309,8 @@ def query(
                 age = get_query_latest_age(**execute_kwargs, verbose=verbose)  # type: ignore
                 if age is None or age > max_age:
                     refresh = True
-            if not refresh:
+            # Skip GET results attempt for parameterized queries - they need execution first
+            if not refresh and not is_parameterized:
                 df = get_results(**execute_kwargs, **result_kwargs)
                 if df is not None:
                     return process_result(df, execution, **output_kwargs)
@@ -334,9 +343,44 @@ def query(
             return execution
 
 
-@overload
-@overload
-@overload
+if TYPE_CHECKING:
+    @overload
+    def _process_result(
+        df: pl.DataFrame,
+        execution: Execution | None,
+        execute_kwargs: ExecuteKwargs,
+        result_kwargs: RetrievalKwargs,
+        cache: bool,
+        save_to_cache: bool,
+        cache_dir: str | None,
+        include_execution: Literal[False],
+    ) -> pl.DataFrame: ...
+
+    @overload
+    def _process_result(
+        df: pl.DataFrame,
+        execution: Execution | None,
+        execute_kwargs: ExecuteKwargs,
+        result_kwargs: RetrievalKwargs,
+        cache: bool,
+        save_to_cache: bool,
+        cache_dir: str | None,
+        include_execution: Literal[True],
+    ) -> tuple[pl.DataFrame, Execution]: ...
+
+    @overload
+    def _process_result(
+        df: pl.DataFrame,
+        execution: Execution | None,
+        execute_kwargs: ExecuteKwargs,
+        result_kwargs: RetrievalKwargs,
+        cache: bool,
+        save_to_cache: bool,
+        cache_dir: str | None,
+        include_execution: bool,
+    ) -> pl.DataFrame | tuple[pl.DataFrame, Execution]: ...
+
+
 def _process_result(
     df: pl.DataFrame,
     execution: Execution | None,
