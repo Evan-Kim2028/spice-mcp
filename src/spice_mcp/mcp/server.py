@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 os.environ.setdefault("FASTMCP_NO_BANNER", "1")
 os.environ.setdefault("FASTMCP_LOG_LEVEL", "ERROR")
@@ -22,7 +22,6 @@ try:
 except Exception:
     pass
 
-from ..adapters.dune import extract as dune_extract
 from ..adapters.dune import urls as dune_urls
 from ..adapters.dune.admin import DuneAdminAdapter
 from ..adapters.dune.client import DuneAdapter
@@ -144,9 +143,10 @@ def compute_health_status() -> dict[str, Any]:
         if tmpl:
             tid = dune_urls.get_query_id(tmpl)
             url = dune_urls.url_templates["query"].format(query_id=tid)
+            from ..adapters.dune.user_agent import get_user_agent as get_dune_user_agent
             headers = {
                 "X-Dune-API-Key": os.getenv("DUNE_API_KEY", ""),
-                "User-Agent": dune_extract.get_user_agent(),
+                "User-Agent": get_dune_user_agent(),
             }
             client = HTTP_CLIENT or HttpClient(Config.from_env().http)
             resp = client.request("GET", url, headers=headers, timeout=5.0)
@@ -169,9 +169,10 @@ def dune_query_info(query: str) -> dict[str, Any]:
     try:
         qid = dune_urls.get_query_id(query)
         url = dune_urls.url_templates["query"].format(query_id=qid)
+        from ..adapters.dune.user_agent import get_user_agent as get_dune_user_agent
         headers = {
             "X-Dune-API-Key": dune_urls.get_api_key(),
-            "User-Agent": dune_extract.get_user_agent(),
+            "User-Agent": get_dune_user_agent(),
         }
         client = HTTP_CLIENT or HttpClient(Config.from_env().http)
         resp = client.request("GET", url, headers=headers, timeout=10.0)
@@ -197,33 +198,55 @@ def dune_query_info(query: str) -> dict[str, Any]:
         })
 
 
-@app.tool(
-    name="dune_query",
-    title="Run Dune Query",
-    description="Execute Dune queries and return agent-optimized preview.",
-    tags={"dune", "query"},
-)
-def dune_query(
+def _dune_query_impl(
     query: str,
-    parameters: dict[str, Any] | None = None,
+    parameters: Optional[dict[str, Any]] = None,
     refresh: bool = False,
-    max_age: float | None = None,
-    limit: int | None = None,
-    offset: int | None = None,
-    sample_count: int | None = None,
-    sort_by: str | None = None,
-    columns: list[str] | None = None,
+    max_age: Optional[float] = None,
+    limit: Optional[int] = None,
+    offset: Optional[int] = None,
+    sample_count: Optional[int] = None,
+    sort_by: Optional[str] = None,
+    columns: Optional[list[str]] = None,
     format: Literal["preview", "raw", "metadata", "poll"] = "preview",
-    extras: dict[str, Any] | None = None,
-    timeout_seconds: float | None = None,
+    extras: Optional[dict[str, Any]] = None,
+    timeout_seconds: Optional[float] = None,
 ) -> dict[str, Any]:
+    """Internal implementation of dune_query to avoid FastMCP overload detection."""
     _ensure_initialized()
     assert EXECUTE_QUERY_TOOL is not None
+    
+    # Normalize parameters: handle case where MCP client passes JSON string
+    # This can happen if FastMCP's schema generation doesn't match client expectations
+    normalized_parameters = parameters
+    if isinstance(parameters, str):
+        try:
+            import json
+            normalized_parameters = json.loads(parameters)
+        except (json.JSONDecodeError, TypeError):
+            return error_response(
+                ValueError(f"parameters must be a dict or JSON string, got {type(parameters).__name__}"),
+                context={
+                    "tool": "dune_query",
+                    "query": query,
+                    "parameters_type": type(parameters).__name__,
+                }
+            )
+    
+    # Normalize extras similarly
+    normalized_extras = extras
+    if isinstance(extras, str):
+        try:
+            import json
+            normalized_extras = json.loads(extras)
+        except (json.JSONDecodeError, TypeError):
+            normalized_extras = None
+    
     try:
         # Execute query synchronously
         return EXECUTE_QUERY_TOOL.execute(
             query=query,
-            parameters=parameters,
+            parameters=normalized_parameters,
             refresh=refresh,
             max_age=max_age,
             limit=limit,
@@ -232,7 +255,7 @@ def dune_query(
             sort_by=sort_by,
             columns=columns,
             format=format,
-            extras=extras,
+            extras=normalized_extras,
             timeout_seconds=timeout_seconds,
         )
     except Exception as e:
@@ -242,6 +265,48 @@ def dune_query(
             "limit": limit,
             "offset": offset,
         })
+
+
+@app.tool(
+    name="dune_query",
+    title="Run Dune Query",
+    description="Execute Dune queries and return agent-optimized preview.",
+    tags={"dune", "query"},
+)
+def dune_query(
+    query: str,
+    parameters: Optional[dict[str, Any]] = None,
+    refresh: bool = False,
+    max_age: Optional[float] = None,
+    limit: Optional[int] = None,
+    offset: Optional[int] = None,
+    sample_count: Optional[int] = None,
+    sort_by: Optional[str] = None,
+    columns: Optional[list[str]] = None,
+    format: Literal["preview", "raw", "metadata", "poll"] = "preview",
+    extras: Optional[dict[str, Any]] = None,
+    timeout_seconds: Optional[float] = None,
+) -> dict[str, Any]:
+    """Execute Dune queries (by ID, URL, or raw SQL) and return agent-optimized preview.
+    
+    This wrapper ensures FastMCP doesn't detect overloads in imported functions.
+    """
+    # Always ensure parameters is explicitly passed (even if None) to avoid FastMCP
+    # overload detection when the keyword is omitted
+    return _dune_query_impl(
+        query=query,
+        parameters=parameters,
+        refresh=refresh,
+        max_age=max_age,
+        limit=limit,
+        offset=offset,
+        sample_count=sample_count,
+        sort_by=sort_by,
+        columns=columns,
+        format=format,
+        extras=extras,
+        timeout_seconds=timeout_seconds,
+    )
 
 
 @app.tool(

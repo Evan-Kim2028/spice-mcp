@@ -5,8 +5,10 @@ import re
 import time
 from typing import Any
 
-from ...adapters.dune import extract as dune_extract
 from ...adapters.dune import urls as dune_urls
+from ...adapters.dune.query_wrapper import execute_query as execute_dune_query
+# Import user_agent from separate module to avoid importing overloaded functions
+from ...adapters.dune.user_agent import get_user_agent as get_dune_user_agent
 from ...adapters.http_client import HttpClient
 from ...config import Config
 from ...core.errors import error_response
@@ -103,7 +105,7 @@ class ExecuteQueryTool(MCPTool):
             q_use = _maybe_rewrite_show_sql(query) or query
             # Poll-only: return execution handle without fetching results
             if format == "poll":
-                exec_obj = dune_extract.query(
+                exec_obj = execute_dune_query(
                     q_use,
                     parameters=parameters,
                     api_key=self.config.dune.api_key,
@@ -333,7 +335,7 @@ class ExecuteQueryTool(MCPTool):
             query_id = dune_urls.get_query_id(query)
             headers = {
                 "X-Dune-API-Key": dune_urls.get_api_key(),
-                "User-Agent": dune_extract.get_user_agent(),
+                "User-Agent": get_dune_user_agent(),
             }
             resp = self._http.request(
                 "GET",
@@ -362,7 +364,7 @@ class ExecuteQueryTool(MCPTool):
                 url = dune_urls.get_execution_status_url(execution_id)
                 headers = {
                     "X-Dune-API-Key": dune_urls.get_api_key(),
-                    "User-Agent": dune_extract.get_user_agent(),
+                    "User-Agent": get_dune_user_agent(),
                 }
                 resp = self._http.request("GET", url, headers=headers, timeout=10.0)
                 data = resp.json()

@@ -22,7 +22,10 @@ from ...core.models import (
 from ...core.ports import CatalogExplorer, QueryExecutor
 from ...polars_utils import collect_preview
 from ..http_client import HttpClient, HttpClientConfig
-from . import extract, urls
+from . import urls
+
+# Use wrapper to avoid FastMCP detecting overloads in extract.query()
+from .query_wrapper import execute_query as _execute_dune_query
 
 
 class DuneAdapter(QueryExecutor, CatalogExplorer):
@@ -47,7 +50,7 @@ class DuneAdapter(QueryExecutor, CatalogExplorer):
             q_rewritten = _maybe_rewrite_show_sql(q)
             if q_rewritten is not None:
                 q = q_rewritten
-        result = extract.query(
+        result = _execute_dune_query(
             query_or_execution=q,
             verbose=False,
             refresh=request.refresh,
@@ -123,9 +126,10 @@ class DuneAdapter(QueryExecutor, CatalogExplorer):
                     pass
 
             url = urls.get_query_results_url(query_id, parameters=params, csv=False)
+            from .user_agent import get_user_agent
             headers = {
                 "X-Dune-API-Key": self._api_key(),
-                "User-Agent": extract.get_user_agent(),
+                "User-Agent": get_user_agent(),
             }
             try:
                 resp = self._http.request("GET", url, headers=headers)
@@ -196,8 +200,8 @@ class DuneAdapter(QueryExecutor, CatalogExplorer):
     def _run_sql(self, sql: str, *, limit: int | None = None) -> pl.DataFrame:
         self._ensure_api_key()
         sql_eff = _maybe_rewrite_show_sql(sql) or sql
-        df = extract.query(
-            sql_eff,
+        df = _execute_dune_query(
+            query_or_execution=sql_eff,
             verbose=False,
             performance="medium",
             timeout_seconds=self.config.default_timeout_seconds,
