@@ -305,11 +305,24 @@ def query(
                 df = get_results(**execute_kwargs, **result_kwargs)
                 if df is not None:
                     return process_result(df, execution, **output_kwargs)
-            execution = execute_query(**execute_kwargs, verbose=verbose)
+            try:
+                execution = execute_query(**execute_kwargs, verbose=verbose)
+            except Exception as e:
+                # Re-raise with more context about the failure
+                if verbose:
+                    print(f'execute_query failed for query_id={query_id}, parameters={parameters}')
+                raise Exception(f'failed to execute query {query_id}: {e}') from e
+        else:
+            # query_id is None or falsy - this shouldn't happen for valid inputs
+            if verbose:
+                print(f'query_id is falsy: {query_id}, query_or_execution={query_or_execution}')
 
-        # await execution completion
+        # check execution status
         if execution is None:
-            raise Exception('could not determine execution')
+            error_detail = f'query_id={query_id}, query_type={type(query_or_execution).__name__}'
+            if isinstance(query_or_execution, str):
+                error_detail += f', query_preview={query_or_execution[:100]}'
+            raise Exception(f'could not determine execution ({error_detail})')
         if poll:
             poll_execution(execution, **poll_kwargs)
             df = get_results(execution, api_key, **result_kwargs)
@@ -448,12 +461,7 @@ async def async_query(
     load_from_cache: bool = True,
     include_execution: bool = False,
 ):
-
-    # determine whether target is a query or an execution
-    query_id, execution, parameters = _determine_input_type(
-        query_or_execution,
-        parameters,
-    )
+    raise NotImplementedError("Async API removed; use synchronous query() instead")
 
     # gather arguments
     execute_kwargs: ExecuteKwargs = {
@@ -508,7 +516,7 @@ async def async_query(
                 return await async_process_result(df, execution, **output_kwargs)
         execution = await async_execute_query(**execute_kwargs, verbose=verbose)
 
-    # await execution completion
+    # check execution status
     if execution is None:
         raise Exception('could not determine execution')
     if poll:
@@ -755,11 +763,25 @@ def _execute(
 
     # perform request
     response = _transport_post(url, headers=headers, json=data, timeout=_POST_TIMEOUT)
-    result: Mapping[str, Any] = response.json()
+    
+    # Parse response with better error handling
+    try:
+        result: Mapping[str, Any] = response.json()
+    except Exception as e:
+        if verbose:
+            print(f'failed to parse response JSON: {e}')
+            print(f'response status: {response.status_code}')
+            print(f'response text: {response.text[:500]}')
+        raise Exception(f'failed to parse response: {e}') from e
 
     # check for errors
     if 'execution_id' not in result:
-        raise Exception(result['error'])
+        error_msg = result.get('error', f'response missing execution_id: {result}')
+        if verbose:
+            print(f'execution failed: {error_msg}')
+            print(f'response status: {response.status_code}')
+            print(f'full response: {result}')
+        raise Exception(error_msg)
 
     # process result
     execution_id = result['execution_id']
