@@ -276,6 +276,171 @@ def _dune_find_tables_impl(
     return out
 
 
+def _unified_discover_impl(
+    keyword: str | list[str] | None = None,
+    schema: str | None = None,
+    limit: int = 50,
+    source: Literal["dune", "spellbook", "both"] = "both",
+    include_columns: bool = True,
+) -> dict[str, Any]:
+    """
+    Unified discovery implementation that can search Dune API, Spellbook repo, or both.
+    
+    Returns a consistent format with 'schemas' and 'tables' keys.
+    """
+    _ensure_initialized()
+    out: dict[str, Any] = {
+        "schemas": [],
+        "tables": [],
+        "source": source,
+    }
+    
+    # Normalize keyword to list
+    keywords = keyword if isinstance(keyword, list) else ([keyword] if keyword else [])
+    
+    # Search Dune API if requested
+    if source in ("dune", "both"):
+        dune_result: dict[str, Any] = {}
+        if keyword:
+            assert DISCOVERY_SERVICE is not None
+            # Search each keyword and combine results
+            # DISCOVERY_SERVICE.find_schemas returns list[str], not SchemaMatch objects
+            all_schemas: set[str] = set()
+            for kw in keywords:
+                schemas = DISCOVERY_SERVICE.find_schemas(kw)
+                # schemas is already a list of strings from DiscoveryService
+                all_schemas.update(schemas)
+            dune_result["schemas"] = sorted(list(all_schemas))
+        
+        if schema:
+            assert DISCOVERY_SERVICE is not None
+            tables = DISCOVERY_SERVICE.list_tables(schema, limit=limit)
+            dune_result["tables"] = [
+                {
+                    "schema": schema,
+                    "table": summary.table,
+                    "fully_qualified_name": f"{schema}.{summary.table}",
+                    "source": "dune",
+                }
+                for summary in tables
+            ]
+        
+        # Merge Dune results
+        if "schemas" in dune_result:
+            out["schemas"].extend(dune_result["schemas"])
+        if "tables" in dune_result:
+            out["tables"].extend(dune_result["tables"])
+    
+    # Search Spellbook if requested
+    if source in ("spellbook", "both"):
+        spellbook_result = _spellbook_find_models_impl(
+            keyword=keyword,
+            schema=schema,
+            limit=limit,
+            include_columns=include_columns,
+        )
+        
+        # Convert spellbook models to unified format
+        if "schemas" in spellbook_result:
+            spellbook_schemas = spellbook_result["schemas"]
+            # Merge schemas (avoid duplicates)
+            existing_schemas = set(out["schemas"])
+            for s in spellbook_schemas:
+                if s not in existing_schemas:
+                    out["schemas"].append(s)
+        
+        if "models" in spellbook_result:
+            for model in spellbook_result["models"]:
+                table_info = {
+                    "schema": model["schema"],
+                    "table": model["table"],
+                    "fully_qualified_name": model["fully_qualified_name"],
+                    "source": "spellbook",
+                }
+                if "columns" in model:
+                    table_info["columns"] = model["columns"]
+                out["tables"].append(table_info)
+    
+    # Deduplicate and sort schemas
+    out["schemas"] = sorted(list(set(out["schemas"])))
+    
+    # Limit total tables
+    if limit and len(out["tables"]) > limit:
+        out["tables"] = out["tables"][:limit]
+    
+    return out
+
+
+@app.tool(
+    name="dune_discover",
+    title="Discover Tables",
+    description="Unified tool to discover tables/models from Dune API and/or Spellbook repository. Search by keyword(s) or list tables in a schema.",
+    tags={"dune", "spellbook", "schema", "discovery"},
+)
+def dune_discover(
+    keyword: str | list[str] | None = None,
+    schema: str | None = None,
+    limit: int = 50,
+    source: Literal["dune", "spellbook", "both"] = "both",
+    include_columns: bool = True,
+) -> dict[str, Any]:
+    """
+    Unified discovery tool for Dune tables and Spellbook models.
+    
+    This tool can search both Dune's live schemas (via SQL queries) and Spellbook's
+    dbt models (via GitHub repo parsing) in a single call. You don't need to decide
+    which source to use - it can search both automatically.
+    
+    Args:
+        keyword: Search term(s) - can be a string or list of strings
+                 (e.g., "layerzero", ["layerzero", "dex"], "nft")
+        schema: Schema name to list tables from (e.g., "dex", "spellbook", "layerzero")
+        limit: Maximum number of tables to return
+        source: Where to search - "dune" (Dune API only), "spellbook" (GitHub repo only),
+                or "both" (default: searches both and merges results)
+        include_columns: Whether to include column details for Spellbook models (default: True)
+    
+    Returns:
+        Dictionary with:
+        - 'schemas': List of matching schema names
+        - 'tables': List of table/model objects, each with:
+          - schema: Schema name
+          - table: Table/model name
+          - fully_qualified_name: schema.table
+          - source: "dune" or "spellbook"
+          - columns: Column details (for Spellbook models, if include_columns=True)
+        - 'source': The source parameter used
+    
+    Examples:
+        # Search both sources for layerzero
+        dune_discover(keyword="layerzero")
+        
+        # Search only Spellbook
+        dune_discover(keyword=["layerzero", "bridge"], source="spellbook")
+        
+        # Search only Dune API
+        dune_discover(keyword="sui", source="dune")
+        
+        # List all tables in a schema (searches both sources)
+        dune_discover(schema="dex")
+    """
+    try:
+        return _unified_discover_impl(
+            keyword=keyword,
+            schema=schema,
+            limit=limit,
+            source=source,
+            include_columns=include_columns,
+        )
+    except Exception as e:
+        return error_response(e, context={
+            "tool": "dune_discover",
+            "keyword": keyword,
+            "schema": schema,
+            "source": source,
+        })
+
+
 @app.tool(
     name="dune_find_tables",
     title="Find Tables",
@@ -283,6 +448,9 @@ def _dune_find_tables_impl(
     tags={"dune", "schema"},
 )
 def dune_find_tables(keyword: str | None = None, schema: str | None = None, limit: int = 50) -> dict[str, Any]:
+    """
+    Search schemas and optionally list tables in Dune.
+    """
     try:
         return _dune_find_tables_impl(keyword=keyword, schema=schema, limit=limit)
     except Exception as e:
@@ -329,97 +497,142 @@ def dune_describe_table(schema: str, table: str) -> dict[str, Any]:
 
 
 def _spellbook_find_models_impl(
-    keyword: str | None = None,
+    keyword: str | list[str] | None = None,
     schema: str | None = None,
     limit: int = 50,
+    include_columns: bool = True,
 ) -> dict[str, Any]:
-    """Implementation for spellbook model discovery."""
+    """
+    Implementation for spellbook model discovery.
+    
+    Supports searching by keyword(s) and optionally includes column details.
+    """
     _ensure_initialized()
     assert SPELLBOOK_EXPLORER is not None
     out: dict[str, Any] = {}
+    
+    # Handle keyword search (string or list)
     if keyword:
-        schemas = SPELLBOOK_EXPLORER.find_schemas(keyword)
-        out["schemas"] = [match.schema for match in schemas]
+        # Normalize to list
+        keywords = keyword if isinstance(keyword, list) else [keyword]
+        
+        # Find schemas matching any keyword
+        all_schemas: set[str] = set()
+        for kw in keywords:
+            schemas = SPELLBOOK_EXPLORER.find_schemas(kw)
+            all_schemas.update(match.schema for match in schemas)
+        
+        out["schemas"] = sorted(list(all_schemas))
+        
+        # If schema not specified but we found schemas, search models in those schemas
+        if not schema and all_schemas:
+            out["models"] = []
+            for schema_name in sorted(all_schemas):
+                tables = SPELLBOOK_EXPLORER.list_tables(schema_name, limit=limit)
+                for table_summary in tables:
+                    # Check if table name matches any keyword
+                    table_name = table_summary.table.lower()
+                    matches_keyword = any(kw.lower() in table_name for kw in keywords)
+                    
+                    if matches_keyword:
+                        model_info: dict[str, Any] = {
+                            "schema": schema_name,
+                            "table": table_summary.table,
+                            "fully_qualified_name": f"{schema_name}.{table_summary.table}",
+                        }
+                        
+                        # Include column details if requested
+                        if include_columns:
+                            try:
+                                desc = SPELLBOOK_EXPLORER.describe_table(schema_name, table_summary.table)
+                                model_info["columns"] = [
+                                    {
+                                        "name": col.name,
+                                        "dune_type": col.dune_type,
+                                        "polars_dtype": col.polars_dtype,
+                                        "comment": col.comment,
+                                    }
+                                    for col in desc.columns
+                                ]
+                            except Exception:
+                                model_info["columns"] = []
+                        
+                        out["models"].append(model_info)
+            
+            # Limit total models returned
+            if limit and len(out["models"]) > limit:
+                out["models"] = out["models"][:limit]
+    
+    # If schema specified, list all tables in that schema
     if schema:
         tables = SPELLBOOK_EXPLORER.list_tables(schema, limit=limit)
-        out["tables"] = [summary.table for summary in tables]
+        if "models" not in out:
+            out["models"] = []
+        
+        for table_summary in tables:
+            model_info: dict[str, Any] = {
+                "schema": schema,
+                "table": table_summary.table,
+                "fully_qualified_name": f"{schema}.{table_summary.table}",
+            }
+            
+            # Include column details if requested
+            if include_columns:
+                try:
+                    desc = SPELLBOOK_EXPLORER.describe_table(schema, table_summary.table)
+                    model_info["columns"] = [
+                        {
+                            "name": col.name,
+                            "dune_type": col.dune_type,
+                            "polars_dtype": col.polars_dtype,
+                            "comment": col.comment,
+                        }
+                        for col in desc.columns
+                    ]
+                except Exception:
+                    model_info["columns"] = []
+            
+            out["models"].append(model_info)
+    
     return out
 
 
 @app.tool(
     name="spellbook_find_models",
     title="Search Spellbook",
-    description="Search dbt models in Spellbook GitHub repository (https://github.com/duneanalytics/spellbook). Finds schemas/subprojects and lists tables/models.",
+    description="Search dbt models in Spellbook GitHub repository.",
     tags={"spellbook", "dbt", "schema"},
 )
-def spellbook_find_models(keyword: str | None = None, schema: str | None = None, limit: int = 50) -> dict[str, Any]:
+def spellbook_find_models(
+    keyword: str | list[str] | None = None,
+    schema: str | None = None,
+    limit: int = 50,
+    include_columns: bool = True,
+) -> dict[str, Any]:
     """
     Search Spellbook dbt models from GitHub repository.
     
-    Spellbook is Dune's interpretation layer with curated dbt models. This tool
-    searches the Spellbook GitHub repo to discover available schemas and tables.
-    
     Args:
-        keyword: Search term to find schemas/subprojects (e.g., "dex", "nft", "tokens")
-        schema: Schema/subproject name to list tables from (e.g., "dex", "spellbook")
-        limit: Maximum number of tables to return
+        keyword: Search term(s) to find models - can be a string or list of strings
+        schema: Schema/subproject name to list tables from
+        limit: Maximum number of models to return
+        include_columns: Whether to include column details in results (default: True)
     
     Returns:
-        Dictionary with 'schemas' and/or 'tables' keys
+        Dictionary with 'schemas' and 'models' keys
     """
     try:
-        return _spellbook_find_models_impl(keyword=keyword, schema=schema, limit=limit)
+        return _spellbook_find_models_impl(
+            keyword=keyword,
+            schema=schema,
+            limit=limit,
+            include_columns=include_columns,
+        )
     except Exception as e:
         return error_response(e, context={
             "tool": "spellbook_find_models",
             "keyword": keyword,
             "schema": schema,
-        })
-
-
-def _spellbook_describe_model_impl(schema: str, table: str) -> dict[str, Any]:
-    """Implementation for describing a spellbook model."""
-    _ensure_initialized()
-    assert SPELLBOOK_EXPLORER is not None
-    desc = SPELLBOOK_EXPLORER.describe_table(schema, table)
-    cols = []
-    for col in desc.columns:
-        cols.append(
-            {
-                "name": col.name,
-                "dune_type": col.dune_type,
-                "polars_dtype": col.polars_dtype,
-                "extra": col.extra,
-                "comment": col.comment,
-            }
-        )
-    return {"columns": cols, "table": desc.fully_qualified_name}
-
-
-@app.tool(
-    name="spellbook_describe_model",
-    title="Describe Spellbook Model",
-    description="Describe columns for a dbt model in Spellbook repository.",
-    tags={"spellbook", "dbt", "schema"},
-)
-def spellbook_describe_model(schema: str, table: str) -> dict[str, Any]:
-    """
-    Describe a Spellbook dbt model by parsing its SQL and schema.yml.
-    
-    Args:
-        schema: Schema/subproject name (e.g., "dex", "spellbook")
-        table: Model/table name
-    
-    Returns:
-        Dictionary with 'table' and 'columns' keys
-    """
-    try:
-        return _spellbook_describe_model_impl(schema=schema, table=table)
-    except Exception as e:
-        return error_response(e, context={
-            "tool": "spellbook_describe_model",
-            "schema": schema,
-            "table": table,
         })
 
 
