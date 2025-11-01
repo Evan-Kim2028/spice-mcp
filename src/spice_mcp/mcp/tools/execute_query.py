@@ -313,6 +313,15 @@ class ExecuteQueryTool(MCPTool):
             if template_id_value is not None:
                 extra_fields["template_query_id"] = template_id_value
 
+            # Compute query SHA256 for better debugging
+            q_sha = None
+            try:
+                q_sha = self._persist_query_sql(q_use, q_type)
+                if q_sha:
+                    extra_fields["query_sha256"] = q_sha
+            except Exception:
+                pass
+
             self.query_history.record(
                 execution_id="unknown",
                 query_type=_categorize_query(query),
@@ -324,9 +333,22 @@ class ExecuteQueryTool(MCPTool):
             )
 
             enriched = self._enrich_error(exc)
-            context = {"tool": "dune_query", "query": q_use}
+            context = {"tool": "dune_query", "query": q_use, "query_type": _categorize_query(q_use)}
             if enriched:
                 context.update(enriched)
+            
+            # Add debugging information for raw SQL failures
+            if q_type == "raw_sql" and "could not determine execution" in str(exc):
+                context.update({
+                    "debug_info": "Raw SQL execution failed - this may be related to FastMCP async/concurrency handling",
+                    "template_query_id": template_id_value,
+                    "environment_vars": {
+                        "SPICE_RAW_SQL_QUERY_ID": os.getenv("SPICE_RAW_SQL_QUERY_ID"),
+                        "DUNE_API_KEY_present": bool(os.getenv("DUNE_API_KEY"))
+                    },
+                    "suggested_action": "Retry or check if the template query (4060379) is accessible"
+                })
+            
             return error_response(exc, context=context)
 
     def _persist_query_sql(self, query: str, q_type: str) -> str | None:

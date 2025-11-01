@@ -229,26 +229,7 @@ async def dune_query(
     _ensure_initialized()
     assert EXECUTE_QUERY_TOOL is not None
     try:
-        # Limit concurrent executions to preserve API quota
-        if 'asyncio' not in globals():
-            pass  # type: ignore
-        if SEMAPHORE is not None:
-            async with SEMAPHORE:  # type: ignore
-                return await EXECUTE_QUERY_TOOL.execute(
-                    query=query,
-                    parameters=parameters,
-                    refresh=refresh,
-                    max_age=max_age,
-                    limit=limit,
-                    offset=offset,
-                    sample_count=sample_count,
-                    sort_by=sort_by,
-                    columns=columns,
-                    format=format,
-                    extras=extras,
-                    timeout_seconds=timeout_seconds,
-                )
-        # Fallback without semaphore
+        # Execute query directly without semaphore concurrency control
         return await EXECUTE_QUERY_TOOL.execute(
             query=query,
             parameters=parameters,

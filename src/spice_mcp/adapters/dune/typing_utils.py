@@ -9,4 +9,11 @@ def resolve_raw_sql_template_id() -> int:
     Tests stub HTTP boundaries and only require a consistent integer. This
     placeholder can be adjusted if upstream semantics change.
     """
-    return int(os.getenv("SPICE_RAW_SQL_QUERY_ID", "4060379"))
+    env_value = os.getenv("SPICE_RAW_SQL_QUERY_ID")
+    if env_value:
+        try:
+            return int(env_value.strip())
+        except (ValueError, AttributeError):
+            # Invalid environment variable, fallback to default
+            pass
+    return 4060379

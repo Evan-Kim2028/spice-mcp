@@ -36,8 +36,7 @@ async def test_health_tool_executes(monkeypatch, tmp_path):
     assert "api_key_present" in result
 
 
-@pytest.mark.asyncio
-async def test_dune_query_delegates_and_returns_preview(monkeypatch, tmp_path):
+def test_dune_query_delegates_and_returns_preview(monkeypatch, tmp_path):
     monkeypatch.setenv("DUNE_API_KEY", "test-key")
     monkeypatch.setenv("SPICE_QUERY_HISTORY", str(tmp_path / "queries.jsonl"))
 
@@ -66,7 +65,7 @@ async def test_dune_query_delegates_and_returns_preview(monkeypatch, tmp_path):
     monkeypatch.setattr(server.EXECUTE_QUERY_TOOL.query_history, "record", lambda **k: None)
 
     # Act: call underlying tool directly to avoid FastMCP internals
-    res = await server.EXECUTE_QUERY_TOOL.execute(query="select 1", format="preview")  # type: ignore[union-attr]
+    res = server.EXECUTE_QUERY_TOOL.execute(query="select 1", format="preview")  # type: ignore[union-attr]
 
     # Assert
     assert res["type"] == "preview"
