@@ -22,9 +22,10 @@ from ...core.models import (
 from ...core.ports import CatalogExplorer, QueryExecutor
 from ...polars_utils import collect_preview
 from ..http_client import HttpClient, HttpClientConfig
-from . import urls
+from . import extract, urls
 
 # Use wrapper to avoid FastMCP detecting overloads in extract.query()
+# Note: We still import extract for _determine_input_type and other non-overloaded functions
 from .query_wrapper import execute_query as _execute_dune_query
 
 
