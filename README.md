@@ -1,20 +1,23 @@
 # spice-mcp
 
-spice-mcp is an MCP server for Dune Analytics. It wraps a curated subset of the original Spice client inside a clean architecture (`core` models/ports → `adapters.dune` → service layer → FastMCP tools) and adds agent-friendly workflows for discovery and Sui package exploration. Results are Polars-first in Python and compact, token-efficient in MCP responses.
+spice-mcp is an MCP server for [Dune](https://dune.com/) Analytics. It wraps a curated subset of the original Spice client inside a clean architecture (`core` models/ports → `adapters.dune` → service layer → FastMCP tools) and adds agent-friendly workflows for discovery and Sui package exploration. Results are Polars-first in Python and compact, token-efficient in MCP responses.
 
 Requirements: Python 3.13+
 
 This project uses FastMCP for typed, decorator-registered tools and resources.
 
-Highlights
+## Highlights
 - Polars LazyFrame-first pipeline: results stay lazy until explicitly materialized
-- Ports/adapters layering for maintainable integrations (`docs/architecture.md`)
+- Ports/adapters layering for maintainable integrations ([docs/architecture.md](docs/architecture.md))
 - Discovery utilities (find schemas/tables, describe columns)
 - Sui package workflows (events/transactions/objects) with safe defaults
 - JSONL query history + SQL artifacts (SHA-256) for reproducibility
 - Rich MCP surface: query info/run, discovery, health, Sui, and Dune admin (create/update/fork)
 
-Quick Start
+## What is Dune?
+[Dune](https://dune.com/) is a crypto data platform providing curated blockchain datasets and a public API to run and fetch query results. See the [Dune Docs](https://dune.com/docs) and [Dune API](https://dune.com/docs/api/) for full details.
+
+## Quick Start
 - Export `DUNE_API_KEY` in your shell (the server can also load a local `.env`; set `SPICE_MCP_SKIP_DOTENV=1` to skip during tests).
 - Install dependencies (`uv sync` or `pip install -e .`).
 - Start the FastMCP stdio server:
@@ -93,16 +96,16 @@ Core Tools (with parameters)
   - Use: Verify API key presence and logging paths
   - Output: `api_key_present`, `query_history_path`, `logging_enabled`, `status`
 
-Docs
-- See `docs/index.md` for full documentation:
-  - Dune API structure and capabilities: `docs/dune_api.md`
-  - Discovery patterns and examples: `docs/discovery.md`
-  - Sui package workflows: `docs/sui_packages.md`
-  - Tool reference and schemas: `docs/tools.md`
-  - Codex CLI + tooling integration: `docs/codex_cli.md`, `docs/codex_cli_tools.md`
-  - Architecture overview: `docs/architecture.md`
-  - Installation and configuration: `docs/installation.md`, `docs/config.md`
-  - Development and linting: `docs/development.md`
+## Docs
+- See [docs/index.md](docs/index.md) for full documentation:
+  - Dune API structure and capabilities: [docs/dune_api.md](docs/dune_api.md)
+  - Discovery patterns and examples: [docs/discovery.md](docs/discovery.md)
+  - Sui package workflows: [docs/sui_packages.md](docs/sui_packages.md)
+  - Tool reference and schemas: [docs/tools.md](docs/tools.md)
+  - Codex CLI + tooling integration: [docs/codex_cli.md](docs/codex_cli.md), [docs/codex_cli_tools.md](docs/codex_cli_tools.md)
+  - Architecture overview: [docs/architecture.md](docs/architecture.md)
+  - Installation and configuration: [docs/installation.md](docs/installation.md), [docs/config.md](docs/config.md)
+  - Development and linting: [docs/development.md](docs/development.md)
 
 Notes
 - Legacy Spice code now lives under `src/spice_mcp/adapters/dune` (extract, cache, urls, types).
