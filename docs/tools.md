@@ -116,3 +116,17 @@ Logging & Artifacts
   - source_query_id: integer (required)
   - name?: string (new name)
 - Output: Dune query object
+
+8) dune_query_archive
+- Purpose: Archive a saved Dune query.
+- Input schema:
+  - query_id: integer (required)
+- Output: API response (status, message, query_id)
+- Notes: Operation is logged as an admin action with `query_id`.
+
+9) dune_query_unarchive
+- Purpose: Unarchive a saved Dune query.
+- Input schema:
+  - query_id: integer (required)
+- Output: API response (status, message, query_id)
+- Notes: Operation is logged as an admin action with `query_id`.

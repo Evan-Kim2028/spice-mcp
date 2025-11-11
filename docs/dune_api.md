@@ -32,3 +32,11 @@ Metadata-First Planning
 Raw SQL Support
 - spice-mcp uses an internal dynamic query mechanism to evaluate raw SQL via Dune (by binding into a parameterized template), enabling quick ad-hoc exploration.
 
+Admin Operations
+- Archive query: `POST /api/v1/query/{id}/archive`
+- Unarchive query: `POST /api/v1/query/{id}/unarchive`
+- These operations are exposed via MCP tools `dune_query_archive` and `dune_query_unarchive`. See docs/tools.md for parameters.
+
+Audit Logging
+- All query executions and admin operations are recorded to a JSONL history (path configurable via environment). Admin operations are logged with `action_type="admin_action"` and include the `query_id` for traceability.
+
