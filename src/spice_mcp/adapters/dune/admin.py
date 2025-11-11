@@ -46,7 +46,10 @@ class DuneAdminAdapter:
         body: dict[str, Any] = {"name": name, "query_sql": query_sql, "is_private": is_private}
         if description:
             body["description"] = description
-        if tags is not None:
+        # Auto-attach 'spice-mcp' tag if tags not provided
+        if tags is None:
+            body["tags"] = ["spice-mcp"]
+        else:
             body["tags"] = tags
         if parameters is not None:
             body["parameters"] = parameters
@@ -89,6 +92,28 @@ class DuneAdminAdapter:
             url,
             headers=self._headers(),
             json=body,
+            timeout=20,
+        )
+        return resp.json()
+
+    def archive(self, query_id: int) -> dict[str, Any]:
+        """Archive a saved query."""
+        url = urls.url_templates["query_archive"].format(query_id=query_id)
+        resp = self._http.request(
+            "POST",
+            url,
+            headers=self._headers(),
+            timeout=20,
+        )
+        return resp.json()
+
+    def unarchive(self, query_id: int) -> dict[str, Any]:
+        """Unarchive a saved query."""
+        url = urls.url_templates["query_unarchive"].format(query_id=query_id)
+        resp = self._http.request(
+            "POST",
+            url,
+            headers=self._headers(),
             timeout=20,
         )
         return resp.json()

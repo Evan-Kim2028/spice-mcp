@@ -1,0 +1,16 @@
+{
+  "totals": {
+    "databases": 13,
+    "schemas": 8,
+    "tables": 453,
+    "views": 171,
+    "materialized_views": 42,
+    "dynamic_tables": 50,
+    "tasks": 81,
+    "functions": 10,
+    "procedures": 37,
+    "columns": 8121
+  },
+  "output_dir": "./data_catalogue",
+  "format": "json"
+}

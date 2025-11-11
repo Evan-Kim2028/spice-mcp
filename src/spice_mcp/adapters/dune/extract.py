@@ -248,11 +248,26 @@ def query(
     """
 
     with use_http_client(http_client):
-        # determine whether target is a query or an execution
-        query_id, execution, parameters = _determine_input_type(
-            query_or_execution,
-            parameters,
-        )
+        # Check if this is raw SQL and should use Execute SQL endpoint
+        raw_sql_engine = os.getenv("SPICE_DUNE_RAW_SQL_ENGINE", "execution_sql")
+        is_raw_sql = _is_sql(query_or_execution) if isinstance(query_or_execution, str) else False
+        
+        if is_raw_sql and raw_sql_engine == "execution_sql":
+            # Use Execute SQL endpoint for raw SQL
+            execution = _execute_raw_sql(
+                query_or_execution,  # type: ignore[arg-type]
+                parameters=parameters,
+                timeout_seconds=timeout_seconds,
+                api_key=api_key,
+                verbose=verbose,
+            )
+            query_id = None
+        else:
+            # determine whether target is a query or an execution
+            query_id, execution, parameters = _determine_input_type(
+                query_or_execution,
+                parameters,
+            )
 
         # gather arguments
         execute_kwargs: ExecuteKwargs = {
@@ -322,9 +337,10 @@ def query(
                     print(f'execute_query failed for query_id={query_id}, parameters={parameters}')
                 raise Exception(f'failed to execute query {query_id}: {e}') from e
         else:
-            # query_id is None or falsy - this shouldn't happen for valid inputs
-            if verbose:
-                print(f'query_id is falsy: {query_id}, query_or_execution={query_or_execution}')
+            # query_id is None when using Execute SQL endpoint for raw SQL
+            # execution should already be set from _execute_raw_sql() above
+            if verbose and execution is None:
+                print(f'query_id is None, execution={execution}, query_or_execution={query_or_execution}')
 
         # check execution status
         if execution is None:
@@ -482,6 +498,51 @@ def _parse_timestamp(timestamp: str) -> int:
         .timestamp()
     )
     return int(timestamp_float)
+
+
+def _execute_raw_sql(
+    query_sql: str,
+    *,
+    parameters: Mapping[str, Any] | None = None,
+    timeout_seconds: float | None = None,
+    api_key: str | None = None,
+    verbose: bool = True,
+) -> Execution:
+    """Execute raw SQL via POST /execution/sql endpoint."""
+    url = _urls.url_templates['execution_sql']
+    if api_key is None:
+        api_key = _urls.get_api_key()
+    headers = {'X-Dune-API-Key': api_key, 'User-Agent': get_user_agent()}
+    data: dict[str, Any] = {'query_sql': query_sql}
+    if parameters is not None:
+        data['parameters'] = parameters
+    if timeout_seconds is not None:
+        data['timeout_seconds'] = timeout_seconds
+
+    if verbose:
+        print(f'executing raw SQL via /execution/sql, query_preview={query_sql[:100]}...')
+
+    response = _transport_post(url, headers=headers, json=data, timeout=_POST_TIMEOUT)
+    
+    try:
+        result: Mapping[str, Any] = response.json()
+    except Exception as e:
+        if verbose:
+            print(f'failed to parse response JSON: {e}')
+            print(f'response status: {response.status_code}')
+            print(f'response text: {response.text[:500]}')
+        raise Exception(f'failed to parse response: {e}') from e
+
+    if 'execution_id' not in result:
+        error_msg = result.get('error', f'response missing execution_id: {result}')
+        if verbose:
+            print(f'execution failed: {error_msg}')
+            print(f'response status: {response.status_code}')
+            print(f'full response: {result}')
+        raise Exception(error_msg)
+
+    execution_id = result['execution_id']
+    return {'execution_id': execution_id, 'timestamp': None}
 
 
 def _execute(

@@ -43,6 +43,9 @@ class Config:
     http: HttpClientConfig = field(default_factory=HttpClientConfig)
     max_concurrent_queries: int = 5  # Note: Not currently enforced (kept for future use)
     default_timeout_seconds: int = 30
+    allow_saves: bool = False  # Gate saved-query tools behind SPICE_DUNE_ALLOW_SAVES
+    force_private: bool = False  # Force queries to be private when SPICE_DUNE_FORCE_PRIVATE=true
+    raw_sql_engine: str = "execution_sql"  # Raw SQL execution engine: "execution_sql" or "template"
 
     @classmethod
     def from_env(cls) -> Config:
@@ -78,4 +81,7 @@ class Config:
             ),
             default_timeout_seconds=int(os.getenv("SPICE_TIMEOUT_SECONDS", "30")),
             max_concurrent_queries=int(os.getenv("SPICE_MAX_CONCURRENT_QUERIES", "5")),
+            allow_saves=os.getenv("SPICE_DUNE_ALLOW_SAVES", "false").lower() == "true",
+            force_private=os.getenv("SPICE_DUNE_FORCE_PRIVATE", "false").lower() == "true",
+            raw_sql_engine=os.getenv("SPICE_DUNE_RAW_SQL_ENGINE", "execution_sql"),
         )
