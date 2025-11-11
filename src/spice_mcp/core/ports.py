@@ -52,3 +52,9 @@ class QueryAdmin(Protocol):
 
     def fork(self, source_query_id: int, *, name: str | None = None) -> Mapping[str, Any]:
         ...
+
+    def archive(self, query_id: int) -> Mapping[str, Any]:
+        ...
+
+    def unarchive(self, query_id: int) -> Mapping[str, Any]:
+        ...

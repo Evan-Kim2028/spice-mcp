@@ -20,6 +20,8 @@ url_templates = {
     'query_create': _base_url() + '/query/',
     'query': _base_url() + '/query/{query_id}',
     'query_fork': _base_url() + '/query/{query_id}/fork',
+    'query_archive': _base_url() + '/query/{query_id}/archive',
+    'query_unarchive': _base_url() + '/query/{query_id}/unarchive',
 }
 
 

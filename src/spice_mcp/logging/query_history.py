@@ -67,10 +67,12 @@ class QueryHistory:
         reason: str | None = None,
         cache_hit: bool = False,
         error: str | None = None,
+        action_type: str = "query_execution",  # "query_execution" or "admin_action"
         **extra_fields,
     ) -> None:
-        """Record query execution to JSONL."""
+        """Record query execution or admin action to JSONL."""
         record = {
+            "action_type": action_type,
             "execution_id": execution_id,
             "ts": int(datetime.now().timestamp()),
             "timestamp": datetime.now().isoformat(),

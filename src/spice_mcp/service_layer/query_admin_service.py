@@ -24,3 +24,9 @@ class QueryAdminService:
     def fork(self, source_query_id: int, *, name: str | None = None) -> Mapping[str, Any]:
         return self.admin.fork(source_query_id, name=name)
 
+    def archive(self, query_id: int) -> Mapping[str, Any]:
+        return self.admin.archive(query_id)
+
+    def unarchive(self, query_id: int) -> Mapping[str, Any]:
+        return self.admin.unarchive(query_id)
+

@@ -800,8 +800,37 @@ def dune_query_create(name: str, query_sql: str, description: str | None = None,
     _ensure_initialized()
     assert QUERY_ADMIN_SERVICE is not None
     try:
-        return dict(QUERY_ADMIN_SERVICE.create(name=name, query_sql=query_sql, description=description, tags=tags, parameters=parameters))
+        result = dict(QUERY_ADMIN_SERVICE.create(name=name, query_sql=query_sql, description=description, tags=tags, parameters=parameters))
+        # Log admin action
+        if QUERY_HISTORY is not None:
+            query_id = result.get("query_id")
+            if query_id:
+                QUERY_HISTORY.record(
+                    execution_id=f"create_{query_id}",
+                    query_type="query_id",
+                    query_preview=f"Created query: {name}",
+                    status="success",
+                    duration_ms=0,
+                    action_type="admin_action",
+                    query_id=query_id,
+                    action="create",
+                    name=name,
+                )
+        return result
     except Exception as e:
+        # Log error
+        if QUERY_HISTORY is not None:
+            QUERY_HISTORY.record(
+                execution_id=f"create_failed",
+                query_type="raw_sql",
+                query_preview=f"Failed to create query: {name}",
+                status="error",
+                duration_ms=0,
+                action_type="admin_action",
+                action="create",
+                name=name,
+                error=str(e),
+            )
         return error_response(e, context={"tool": "dune_query_create", "name": name})
 
 
@@ -815,8 +844,34 @@ def dune_query_update(query_id: int, name: str | None = None, query_sql: str | N
     _ensure_initialized()
     assert QUERY_ADMIN_SERVICE is not None
     try:
-        return dict(QUERY_ADMIN_SERVICE.update(query_id, name=name, query_sql=query_sql, description=description, tags=tags, parameters=parameters))
+        result = dict(QUERY_ADMIN_SERVICE.update(query_id, name=name, query_sql=query_sql, description=description, tags=tags, parameters=parameters))
+        # Log admin action
+        if QUERY_HISTORY is not None:
+            QUERY_HISTORY.record(
+                execution_id=f"update_{query_id}",
+                query_type="query_id",
+                query_preview=f"Updated query {query_id}",
+                status="success",
+                duration_ms=0,
+                action_type="admin_action",
+                query_id=query_id,
+                action="update",
+            )
+        return result
     except Exception as e:
+        # Log error
+        if QUERY_HISTORY is not None:
+            QUERY_HISTORY.record(
+                execution_id=f"update_{query_id}",
+                query_type="query_id",
+                query_preview=f"Failed to update query {query_id}",
+                status="error",
+                duration_ms=0,
+                action_type="admin_action",
+                query_id=query_id,
+                action="update",
+                error=str(e),
+            )
         return error_response(e, context={"tool": "dune_query_update", "query_id": query_id})
 
 
@@ -830,6 +885,116 @@ def dune_query_fork(source_query_id: int, name: str | None = None) -> dict[str, 
     _ensure_initialized()
     assert QUERY_ADMIN_SERVICE is not None
     try:
-        return dict(QUERY_ADMIN_SERVICE.fork(source_query_id, name=name))
+        result = dict(QUERY_ADMIN_SERVICE.fork(source_query_id, name=name))
+        # Log admin action
+        if QUERY_HISTORY is not None:
+            query_id = result.get("query_id") or source_query_id
+            QUERY_HISTORY.record(
+                execution_id=f"fork_{source_query_id}",
+                query_type="query_id",
+                query_preview=f"Forked query {source_query_id}",
+                status="success",
+                duration_ms=0,
+                action_type="admin_action",
+                query_id=query_id,
+                action="fork",
+                source_query_id=source_query_id,
+            )
+        return result
     except Exception as e:
+        # Log error
+        if QUERY_HISTORY is not None:
+            QUERY_HISTORY.record(
+                execution_id=f"fork_{source_query_id}",
+                query_type="query_id",
+                query_preview=f"Failed to fork query {source_query_id}",
+                status="error",
+                duration_ms=0,
+                action_type="admin_action",
+                query_id=source_query_id,
+                action="fork",
+                error=str(e),
+            )
         return error_response(e, context={"tool": "dune_query_fork", "source_query_id": source_query_id})
+
+
+@app.tool(
+    name="dune_query_archive",
+    title="Archive Saved Query",
+    description="Archive a saved Dune query.",
+    tags={"dune", "admin"},
+)
+def dune_query_archive(query_id: int) -> dict[str, Any]:
+    _ensure_initialized()
+    assert QUERY_ADMIN_SERVICE is not None
+    try:
+        result = dict(QUERY_ADMIN_SERVICE.archive(query_id))
+        # Log admin action
+        if QUERY_HISTORY is not None:
+            QUERY_HISTORY.record(
+                execution_id=f"archive_{query_id}",
+                query_type="query_id",
+                query_preview=f"Archived query {query_id}",
+                status="success",
+                duration_ms=0,
+                action_type="admin_action",
+                query_id=query_id,
+                action="archive",
+            )
+        return result
+    except Exception as e:
+        # Log error
+        if QUERY_HISTORY is not None:
+            QUERY_HISTORY.record(
+                execution_id=f"archive_{query_id}",
+                query_type="query_id",
+                query_preview=f"Failed to archive query {query_id}",
+                status="error",
+                duration_ms=0,
+                action_type="admin_action",
+                query_id=query_id,
+                action="archive",
+                error=str(e),
+            )
+        return error_response(e, context={"tool": "dune_query_archive", "query_id": query_id})
+
+
+@app.tool(
+    name="dune_query_unarchive",
+    title="Unarchive Saved Query",
+    description="Unarchive a saved Dune query.",
+    tags={"dune", "admin"},
+)
+def dune_query_unarchive(query_id: int) -> dict[str, Any]:
+    _ensure_initialized()
+    assert QUERY_ADMIN_SERVICE is not None
+    try:
+        result = dict(QUERY_ADMIN_SERVICE.unarchive(query_id))
+        # Log admin action
+        if QUERY_HISTORY is not None:
+            QUERY_HISTORY.record(
+                execution_id=f"unarchive_{query_id}",
+                query_type="query_id",
+                query_preview=f"Unarchived query {query_id}",
+                status="success",
+                duration_ms=0,
+                action_type="admin_action",
+                query_id=query_id,
+                action="unarchive",
+            )
+        return result
+    except Exception as e:
+        # Log error
+        if QUERY_HISTORY is not None:
+            QUERY_HISTORY.record(
+                execution_id=f"unarchive_{query_id}",
+                query_type="query_id",
+                query_preview=f"Failed to unarchive query {query_id}",
+                status="error",
+                duration_ms=0,
+                action_type="admin_action",
+                query_id=query_id,
+                action="unarchive",
+                error=str(e),
+            )
+        return error_response(e, context={"tool": "dune_query_unarchive", "query_id": query_id})

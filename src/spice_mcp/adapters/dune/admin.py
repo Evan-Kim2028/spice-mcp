@@ -92,3 +92,25 @@ class DuneAdminAdapter:
             timeout=20,
         )
         return resp.json()
+
+    def archive(self, query_id: int) -> dict[str, Any]:
+        """Archive a saved query."""
+        url = urls.url_templates["query_archive"].format(query_id=query_id)
+        resp = self._http.request(
+            "POST",
+            url,
+            headers=self._headers(),
+            timeout=20,
+        )
+        return resp.json()
+
+    def unarchive(self, query_id: int) -> dict[str, Any]:
+        """Unarchive a saved query."""
+        url = urls.url_templates["query_unarchive"].format(query_id=query_id)
+        resp = self._http.request(
+            "POST",
+            url,
+            headers=self._headers(),
+            timeout=20,
+        )
+        return resp.json()
