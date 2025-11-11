@@ -46,7 +46,10 @@ class DuneAdminAdapter:
         body: dict[str, Any] = {"name": name, "query_sql": query_sql, "is_private": is_private}
         if description:
             body["description"] = description
-        if tags is not None:
+        # Auto-attach 'spice-mcp' tag if tags not provided
+        if tags is None:
+            body["tags"] = ["spice-mcp"]
+        else:
             body["tags"] = tags
         if parameters is not None:
             body["parameters"] = parameters

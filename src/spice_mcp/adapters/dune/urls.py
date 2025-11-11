@@ -14,6 +14,7 @@ def _base_url() -> str:
 url_templates = {
     'execution_status': _base_url() + '/execution/{execution_id}/status',
     'execution_results': _base_url() + '/execution/{execution_id}/results/csv',
+    'execution_sql': _base_url() + '/execution/sql',
     'query_execution': _base_url() + '/query/{query_id}/execute',
     'query_results': _base_url() + '/query/{query_id}/results/csv',
     'query_results_json': _base_url() + '/query/{query_id}/results',

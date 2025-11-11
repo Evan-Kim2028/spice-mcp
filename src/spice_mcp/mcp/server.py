@@ -92,7 +92,8 @@ def _ensure_initialized() -> None:
             CONFIG.dune.api_key,
             http_client=HTTP_CLIENT,
             http_config=CONFIG.http,
-        )
+        ),
+        force_private=CONFIG.force_private,
     )
     
     # Initialize Spellbook explorer (lazy, clones repo on first use)
@@ -793,11 +794,16 @@ if __name__ == "__main__":
 @app.tool(
     name="dune_query_create",
     title="Create Saved Query",
-    description="Create a new saved Dune query (name + SQL).",
+    description="Create a new saved Dune query (name + SQL). Requires SPICE_DUNE_ALLOW_SAVES=true.",
     tags={"dune", "admin"},
 )
 def dune_query_create(name: str, query_sql: str, description: str | None = None, tags: list[str] | None = None, parameters: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     _ensure_initialized()
+    if CONFIG is None or not CONFIG.allow_saves:
+        return error_response(
+            ValueError("Saving queries is disabled. Set SPICE_DUNE_ALLOW_SAVES=true to enable."),
+            context={"tool": "dune_query_create", "allow_saves": False}
+        )
     assert QUERY_ADMIN_SERVICE is not None
     try:
         result = dict(QUERY_ADMIN_SERVICE.create(name=name, query_sql=query_sql, description=description, tags=tags, parameters=parameters))
@@ -837,11 +843,16 @@ def dune_query_create(name: str, query_sql: str, description: str | None = None,
 @app.tool(
     name="dune_query_update",
     title="Update Saved Query",
-    description="Update fields of a saved Dune query (name/SQL/description/tags/parameters).",
+    description="Update fields of a saved Dune query (name/SQL/description/tags/parameters). Requires SPICE_DUNE_ALLOW_SAVES=true.",
     tags={"dune", "admin"},
 )
 def dune_query_update(query_id: int, name: str | None = None, query_sql: str | None = None, description: str | None = None, tags: list[str] | None = None, parameters: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     _ensure_initialized()
+    if CONFIG is None or not CONFIG.allow_saves:
+        return error_response(
+            ValueError("Saving queries is disabled. Set SPICE_DUNE_ALLOW_SAVES=true to enable."),
+            context={"tool": "dune_query_update", "allow_saves": False}
+        )
     assert QUERY_ADMIN_SERVICE is not None
     try:
         result = dict(QUERY_ADMIN_SERVICE.update(query_id, name=name, query_sql=query_sql, description=description, tags=tags, parameters=parameters))
@@ -878,11 +889,16 @@ def dune_query_update(query_id: int, name: str | None = None, query_sql: str | N
 @app.tool(
     name="dune_query_fork",
     title="Fork Saved Query",
-    description="Fork an existing saved Dune query.",
+    description="Fork an existing saved Dune query. Requires SPICE_DUNE_ALLOW_SAVES=true.",
     tags={"dune", "admin"},
 )
 def dune_query_fork(source_query_id: int, name: str | None = None) -> dict[str, Any]:
     _ensure_initialized()
+    if CONFIG is None or not CONFIG.allow_saves:
+        return error_response(
+            ValueError("Saving queries is disabled. Set SPICE_DUNE_ALLOW_SAVES=true to enable."),
+            context={"tool": "dune_query_fork", "allow_saves": False}
+        )
     assert QUERY_ADMIN_SERVICE is not None
     try:
         result = dict(QUERY_ADMIN_SERVICE.fork(source_query_id, name=name))

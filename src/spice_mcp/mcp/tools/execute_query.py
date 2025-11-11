@@ -123,14 +123,16 @@ class ExecuteQueryTool(MCPTool):
                 # Determine IDs for history
                 q_id_value = None
                 template_id_value = None
+                raw_sql_engine = os.getenv("SPICE_DUNE_RAW_SQL_ENGINE", "execution_sql")
                 try:
                     if q_type == "query_id":
                         q_id_value = int(q_use)
                     elif q_type == "url":
                         q_id_value = dune_urls.get_query_id(q_use)
                     else:
-                        import os as _os
-                        template_id_value = int(_os.getenv("SPICE_RAW_SQL_QUERY_ID", "4060379"))
+                        # raw SQL: only use template id if using template engine
+                        if raw_sql_engine == "template":
+                            template_id_value = int(os.getenv("SPICE_RAW_SQL_QUERY_ID", "4060379"))
                 except Exception:
                     pass
 
@@ -199,15 +201,17 @@ class ExecuteQueryTool(MCPTool):
             # Determine query id (or template id for raw SQL) for history
             q_id_value: int | None = None
             template_id_value: int | None = None
+            raw_sql_engine = os.getenv("SPICE_DUNE_RAW_SQL_ENGINE", "execution_sql")
             try:
                 if q_type == "query_id":
                     q_id_value = int(q_use)
                 elif q_type == "url":
                     q_id_value = dune_urls.get_query_id(q_use)
                 else:
-                    # raw SQL path uses a template query id
-                    tmpl = os.getenv("SPICE_RAW_SQL_QUERY_ID", "4060379")
-                    template_id_value = int(tmpl)
+                    # raw SQL: only use template id if using template engine
+                    if raw_sql_engine == "template":
+                        tmpl = os.getenv("SPICE_RAW_SQL_QUERY_ID", "4060379")
+                        template_id_value = int(tmpl)
             except Exception:
                 pass
 
@@ -232,13 +236,16 @@ class ExecuteQueryTool(MCPTool):
             # Derive ids for payload and history
             q_id_value = None
             template_id_value = None
+            raw_sql_engine = os.getenv("SPICE_DUNE_RAW_SQL_ENGINE", "execution_sql")
             try:
                 if q_type == "query_id":
                     q_id_value = int(query)
                 elif q_type == "url":
                     q_id_value = dune_urls.get_query_id(query)
                 else:
-                    template_id_value = int(os.getenv("SPICE_RAW_SQL_QUERY_ID", "4060379"))
+                    # raw SQL: only use template id if using template engine
+                    if raw_sql_engine == "template":
+                        template_id_value = int(os.getenv("SPICE_RAW_SQL_QUERY_ID", "4060379"))
             except Exception:
                 pass
 
@@ -267,14 +274,17 @@ class ExecuteQueryTool(MCPTool):
             q_type = _categorize_query(q_use)
             q_id_value: int | None = None
             template_id_value: int | None = None
+            raw_sql_engine = os.getenv("SPICE_DUNE_RAW_SQL_ENGINE", "execution_sql")
             try:
                 if q_type == "query_id":
                     q_id_value = int(q_use)
                 elif q_type == "url":
                     q_id_value = dune_urls.get_query_id(q_use)
                 else:
-                    tmpl = os.getenv("SPICE_RAW_SQL_QUERY_ID", "4060379")
-                    template_id_value = int(tmpl)
+                    # raw SQL: only use template id if using template engine
+                    if raw_sql_engine == "template":
+                        tmpl = os.getenv("SPICE_RAW_SQL_QUERY_ID", "4060379")
+                        template_id_value = int(tmpl)
             except Exception:
                 pass
 

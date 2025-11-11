@@ -97,6 +97,10 @@ Logging & Artifacts
 
 5) dune_query_create
 - Purpose: Create a saved Dune query.
+- ⚠️ **Gated by default**: Requires `SPICE_DUNE_ALLOW_SAVES=true` to enable. Returns error if disabled.
+- Features:
+  - Automatically tags queries with `['spice-mcp']` if tags not provided
+  - Respects `SPICE_DUNE_FORCE_PRIVATE=true` to force private queries
 - Input schema:
   - name: string (required)
   - query_sql: string (required)
@@ -105,6 +109,7 @@ Logging & Artifacts
 
 6) dune_query_update
 - Purpose: Update a saved Dune query.
+- ⚠️ **Gated by default**: Requires `SPICE_DUNE_ALLOW_SAVES=true` to enable. Returns error if disabled.
 - Input schema:
   - query_id: integer (required)
   - name?: string, query_sql?: string, description?: string, tags?: string[], parameters?: object[]
@@ -112,6 +117,7 @@ Logging & Artifacts
 
 7) dune_query_fork
 - Purpose: Fork an existing saved Dune query.
+- ⚠️ **Gated by default**: Requires `SPICE_DUNE_ALLOW_SAVES=true` to enable. Returns error if disabled.
 - Input schema:
   - source_query_id: integer (required)
   - name?: string (new name)
