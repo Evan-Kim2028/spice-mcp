@@ -49,17 +49,7 @@ An MCP server that provides AI agents with direct access to [Dune Analytics](htt
 
 **Note**: Query history logging is enabled by default. Logs are saved to `logs/queries.jsonl` (or `~/.spice_mcp/logs/queries.jsonl` if not in a project directory). To customize paths, set `SPICE_QUERY_HISTORY` and `SPICE_ARTIFACT_ROOT` environment variables.
 Admin operations (create/update/fork/archive/unarchive) are logged with `action_type="admin_action"` and include `query_id` for traceability.
-
-## Query Safety
-
-By default, **saved-query tools are disabled** to prevent accidental query persistence:
-
-- `dune_query_create`, `dune_query_update`, `dune_query_fork` require `SPICE_DUNE_ALLOW_SAVES=true`
-- Use `dune_query` for ad-hoc analysis (no persistence)
-- Created queries are automatically tagged with `['spice-mcp']` for easy cleanup
-- Optionally force private queries with `SPICE_DUNE_FORCE_PRIVATE=true`
-
-**Bulk cleanup**: Use `scripts/dune_collect_query_ids.py` to extract query IDs from history, then `scripts/dune_bulk_archive.py` for bulk archive/unarchive operations.
+ 
 
 ## Core Tools
 
